@@ -1,0 +1,4 @@
+# Optional: DAMASK grain evolution (install DAMASK separately; see damask-multiphysics.org)
+# After installing DAMASK, add DAMASK_grid to PATH and optionally:
+#   export DAMASK_EXAMPLES_GRID=/path/to/DAMASK/examples/grid
+h5py>=3.8

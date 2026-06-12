@@ -1,0 +1,66 @@
+name: Package
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-build.txt
+      - name: Generate icons
+        run: python packaging/generate_icons.py
+      - name: PyInstaller build
+        run: python -m PyInstaller packaging/tubing_master.spec --noconfirm --clean
+      - name: Create macOS installers
+        run: chmod +x packaging/create_mac_installer.sh && ./packaging/create_mac_installer.sh
+      - name: Upload macOS app
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tubing-Master-macOS-app
+          path: dist/Tubing Master.app
+          if-no-files-found: error
+      - name: Upload macOS DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tubing-Master-macOS-dmg
+          path: dist/Tubing-Master-*-macOS-*.dmg
+          if-no-files-found: error
+      - name: Upload macOS PKG
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tubing-Master-macOS-pkg
+          path: dist/Tubing-Master-*-macOS-*.pkg
+          if-no-files-found: error
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-build.txt
+      - name: Generate icons
+        run: python packaging/generate_icons.py
+      - name: PyInstaller build
+        run: python -m PyInstaller packaging/tubing_master.spec --noconfirm --clean
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tubing-Master-Windows
+          path: dist/Tubing Master
+          if-no-files-found: error

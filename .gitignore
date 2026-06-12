@@ -1,0 +1,21 @@
+# PyInstaller
+build/
+dist/
+*.spec.bak
+packaging/icons/icon.iconset/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/*.egg
+.pytest_cache/
+
+# One-off tooling / vendored decompiler (not part of the app)
+.decomp_vendor/
+
+# Env / IDE
+.venv/
+.env
+.DS_Store

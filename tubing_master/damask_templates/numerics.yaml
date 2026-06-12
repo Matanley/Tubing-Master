@@ -1,0 +1,40 @@
+# Tubing Master — compact numerics (subset of DAMASK examples/config/numerics.yaml)
+solver:
+  grid:
+    N_staggered_iter_max: 10
+    N_cutback_max: 3
+    mechanical:
+      N_iter_min: 1
+      N_iter_max: 100
+      eps_abs_div(P): 1.0e-4
+      eps_rel_div(P): 5.0e-4
+      eps_abs_P: 1.0e3
+      eps_rel_P: 1.0e-3
+      eps_abs_curl(F): 1.0e-10
+      eps_rel_curl(F): 5.0e-4
+      alpha: 1.0
+      beta: 1.0
+      update_gamma: false
+      PETSc_options: -snes_type ngmres -snes_ngmres_anderson
+    FFT:
+      memory_efficient: true
+      divergence_correction: size+grid
+      derivative: continuous
+      FFTW_plan_mode: FFTW_MEASURE
+      FFTW_timelimit: -1.0
+phase:
+  mechanical:
+    r_cutback_min: 1.0e-3
+    r_cutback: 0.25
+    r_increase: 1.5
+    eps_rel_state: 1.0e-6
+    N_iter_state_max: 10
+  plastic:
+    r_linesearch_Lp: 0.5
+    eps_rel_Lp: 1.0e-6
+    eps_abs_Lp: 1.0e-8
+    N_iter_Lp_max: 40
+    f_update_jacobi_Lp: 1
+    integrator_state: FPI
+generic:
+  random_seed: 0

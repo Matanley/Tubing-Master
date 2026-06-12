@@ -1,0 +1,1654 @@
+{
+  "format_version": 1,
+  "kind": "tubing_master_project_bundle",
+  "record": {
+    "id": "c999cab8-b171-4505-94b4-a80e6b1cc315",
+    "title": "316L stainless steel \u2014 17 pass(es)",
+    "created": "2026-05-10T22:28:22Z",
+    "updated": "2026-05-10T22:28:22Z",
+    "project": {
+      "in_od_mm": 12.0,
+      "in_id_mm": 9.9,
+      "out_od_mm": 9.5,
+      "out_id_mm": 9.3,
+      "material": "316L stainless steel",
+      "drawing_method": "Sink drawing (rodless drawing)",
+      "pass_schedule": {
+        "simulation_backend": "analytical",
+        "passes": [
+          {
+            "r": 0.12,
+            "alpha_deg": 12.0,
+            "mu": 0.06,
+            "temperature": "1050",
+            "time": "45",
+            "protective_gas": "",
+            "equipment": "",
+            "notes": ""
+          },
+          {
+            "r": 0.12,
+            "alpha_deg": 12.0,
+            "mu": 0.06,
+            "temperature": "1050",
+            "time": "45",
+            "protective_gas": "",
+            "equipment": "",
+            "notes": ""
+          },
+          {
+            "r": 0.12,
+            "alpha_deg": 12.0,
+            "mu": 0.06,
+            "temperature": "1050",
+            "time": "45",
+            "protective_gas": "",
+            "equipment": "",
+            "notes": ""
+          },
+          {
+            "r": 0.12,
+            "alpha_deg": 12.0,
+            "mu": 0.06,
+            "temperature": "1050",
+            "time": "45",
+            "protective_gas": "",
+            "equipment": "",
+            "notes": ""
+          },
+          {
+            "r": 0.12,
+            "alpha_deg": 12.0,
+            "mu": 0.06,
+            "temperature": "1050",
+            "time": "45",
+            "protective_gas": "",
+            "equipment": "",
+            "notes": ""
+          },
+          {
+            "r": 0.12,
+            "alpha_deg": 12.0,
+            "mu": 0.06,
+            "temperature": "1050",
+            "time": "45",
+            "protective_gas": "",
+            "equipment": "",
+            "notes": ""
+          },
+          {
+            "r": 0.12,
+            "alpha_deg": 12.0,
+            "mu": 0.06,
+            "temperature": "1050",
+            "time": "45",
+            "protective_gas": "",
+            "equipment": "",
+            "notes": ""
+          },
+          {
+            "r": 0.12,
+            "alpha_deg": 12.0,
+            "mu": 0.06,
+            "temperature": "1050",
+            "time": "45",
+            "protective_gas": "",
+            "equipment": "",
+            "notes": ""
+          },
+          {
+            "r": 0.12,
+            "alpha_deg": 12.0,
+            "mu": 0.06,
+            "temperature": "1050",
+            "time": "45",
+            "protective_gas": "",
+            "equipment": "",
+            "notes": ""
+          },
+          {
+            "r": 0.12,
+            "alpha_deg": 12.0,
+            "mu": 0.06,
+            "temperature": "1050",
+            "time": "45",
+            "protective_gas": "",
+            "equipment": "",
+            "notes": ""
+          },
+          {
+            "r": 0.12,
+            "alpha_deg": 12.0,
+            "mu": 0.06,
+            "temperature": "1050",
+            "time": "45",
+            "protective_gas": "",
+            "equipment": "",
+            "notes": ""
+          },
+          {
+            "r": 0.12,
+            "alpha_deg": 12.0,
+            "mu": 0.06,
+            "temperature": "1050",
+            "time": "45",
+            "protective_gas": "",
+            "equipment": "",
+            "notes": ""
+          },
+          {
+            "r": 0.12,
+            "alpha_deg": 12.0,
+            "mu": 0.06,
+            "temperature": "1050",
+            "time": "45",
+            "protective_gas": "",
+            "equipment": "",
+            "notes": ""
+          },
+          {
+            "r": 0.12,
+            "alpha_deg": 12.0,
+            "mu": 0.06,
+            "temperature": "1050",
+            "time": "45",
+            "protective_gas": "",
+            "equipment": "",
+            "notes": ""
+          },
+          {
+            "r": 0.12,
+            "alpha_deg": 12.0,
+            "mu": 0.06,
+            "temperature": "1050",
+            "time": "45",
+            "protective_gas": "",
+            "equipment": "",
+            "notes": ""
+          },
+          {
+            "r": 0.12,
+            "alpha_deg": 12.0,
+            "mu": 0.06,
+            "temperature": "1050",
+            "time": "45",
+            "protective_gas": "",
+            "equipment": "",
+            "notes": ""
+          },
+          {
+            "r": 0.12,
+            "alpha_deg": 12.0,
+            "mu": 0.06,
+            "temperature": "1050",
+            "time": "45",
+            "protective_gas": "",
+            "equipment": "",
+            "notes": ""
+          }
+        ]
+      },
+      "die_inventory": [],
+      "die_inventory_angle_tolerance_deg": 0.5,
+      "note": "316L stainless steel \u2014 17 pass(es)"
+    },
+    "pass_schedule": {
+      "simulation_backend": "analytical",
+      "passes": [
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        }
+      ]
+    },
+    "pass_bom": {
+      "version": 2,
+      "currency": "USD",
+      "lines": [
+        {
+          "item": "Pass 1 drawing",
+          "qty": 1.0,
+          "unit": "pass",
+          "unit_cost": 0.0,
+          "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u224810.74 \u00b5m"
+        },
+        {
+          "item": "Pass 2 drawing",
+          "qty": 1.0,
+          "unit": "pass",
+          "unit_cost": 0.0,
+          "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22487.69 \u00b5m"
+        },
+        {
+          "item": "Pass 3 drawing",
+          "qty": 1.0,
+          "unit": "pass",
+          "unit_cost": 0.0,
+          "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22485.51 \u00b5m"
+        },
+        {
+          "item": "Pass 4 drawing",
+          "qty": 1.0,
+          "unit": "pass",
+          "unit_cost": 0.0,
+          "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22483.95 \u00b5m"
+        },
+        {
+          "item": "Pass 5 drawing",
+          "qty": 1.0,
+          "unit": "pass",
+          "unit_cost": 0.0,
+          "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22482.83 \u00b5m"
+        },
+        {
+          "item": "Pass 6 drawing",
+          "qty": 1.0,
+          "unit": "pass",
+          "unit_cost": 0.0,
+          "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22482.02 \u00b5m"
+        },
+        {
+          "item": "Pass 7 drawing",
+          "qty": 1.0,
+          "unit": "pass",
+          "unit_cost": 0.0,
+          "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22481.45 \u00b5m"
+        },
+        {
+          "item": "Pass 8 drawing",
+          "qty": 1.0,
+          "unit": "pass",
+          "unit_cost": 0.0,
+          "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22481.04 \u00b5m"
+        },
+        {
+          "item": "Pass 9 drawing",
+          "qty": 1.0,
+          "unit": "pass",
+          "unit_cost": 0.0,
+          "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22480.74 \u00b5m"
+        },
+        {
+          "item": "Pass 10 drawing",
+          "qty": 1.0,
+          "unit": "pass",
+          "unit_cost": 0.0,
+          "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22480.53 \u00b5m"
+        },
+        {
+          "item": "Pass 11 drawing",
+          "qty": 1.0,
+          "unit": "pass",
+          "unit_cost": 0.0,
+          "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22480.50 \u00b5m"
+        },
+        {
+          "item": "Pass 12 drawing",
+          "qty": 1.0,
+          "unit": "pass",
+          "unit_cost": 0.0,
+          "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22480.50 \u00b5m"
+        },
+        {
+          "item": "Pass 13 drawing",
+          "qty": 1.0,
+          "unit": "pass",
+          "unit_cost": 0.0,
+          "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22480.50 \u00b5m"
+        },
+        {
+          "item": "Pass 14 drawing",
+          "qty": 1.0,
+          "unit": "pass",
+          "unit_cost": 0.0,
+          "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22480.50 \u00b5m"
+        },
+        {
+          "item": "Pass 15 drawing",
+          "qty": 1.0,
+          "unit": "pass",
+          "unit_cost": 0.0,
+          "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22480.50 \u00b5m"
+        },
+        {
+          "item": "Pass 16 drawing",
+          "qty": 1.0,
+          "unit": "pass",
+          "unit_cost": 0.0,
+          "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22480.50 \u00b5m"
+        },
+        {
+          "item": "Pass 17 drawing",
+          "qty": 1.0,
+          "unit": "pass",
+          "unit_cost": 0.0,
+          "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22480.50 \u00b5m"
+        }
+      ],
+      "simulation_summary": {
+        "version": 1,
+        "simulation_backend": "analytical",
+        "in_od_mm": 12.0,
+        "in_id_mm": 9.9,
+        "out_od_mm": 4.048405063018718,
+        "out_id_mm": 3.3399341769904436,
+        "pass_metrics": [
+          {
+            "pass": 1,
+            "pulling_stress_mpa": 188.93262810791222,
+            "safety_factor": 0.24180290376532218,
+            "true_strain": 0.127833371509885,
+            "grain_um": 10.742916914481299
+          },
+          {
+            "pass": 2,
+            "pulling_stress_mpa": 188.93262810791222,
+            "safety_factor": 0.24180290376532218,
+            "true_strain": 0.127833371509885,
+            "grain_um": 7.694017588763226
+          },
+          {
+            "pass": 3,
+            "pulling_stress_mpa": 188.93262810791222,
+            "safety_factor": 0.24180290376532218,
+            "true_strain": 0.127833371509885,
+            "grain_um": 5.5104127796427385
+          },
+          {
+            "pass": 4,
+            "pulling_stress_mpa": 188.93262810791222,
+            "safety_factor": 0.24180290376532218,
+            "true_strain": 0.127833371509885,
+            "grain_um": 3.9465271104131925
+          },
+          {
+            "pass": 5,
+            "pulling_stress_mpa": 188.93262810791222,
+            "safety_factor": 0.24180290376532218,
+            "true_strain": 0.127833371509885,
+            "grain_um": 2.826480856527793
+          },
+          {
+            "pass": 6,
+            "pulling_stress_mpa": 188.93262810791222,
+            "safety_factor": 0.24180290376532218,
+            "true_strain": 0.127833371509885,
+            "grain_um": 2.024309933470001
+          },
+          {
+            "pass": 7,
+            "pulling_stress_mpa": 188.93262810791222,
+            "safety_factor": 0.24180290376532218,
+            "true_strain": 0.127833371509885,
+            "grain_um": 1.4497995616284924
+          },
+          {
+            "pass": 8,
+            "pulling_stress_mpa": 188.93262810791222,
+            "safety_factor": 0.24180290376532218,
+            "true_strain": 0.127833371509885,
+            "grain_um": 1.0383384155484203
+          },
+          {
+            "pass": 9,
+            "pulling_stress_mpa": 188.93262810791222,
+            "safety_factor": 0.24180290376532218,
+            "true_strain": 0.127833371509885,
+            "grain_um": 0.7436522218233891
+          },
+          {
+            "pass": 10,
+            "pulling_stress_mpa": 188.93262810791222,
+            "safety_factor": 0.24180290376532218,
+            "true_strain": 0.127833371509885,
+            "grain_um": 0.532599602154539
+          },
+          {
+            "pass": 11,
+            "pulling_stress_mpa": 188.93262810791222,
+            "safety_factor": 0.24180290376532218,
+            "true_strain": 0.127833371509885,
+            "grain_um": 0.5
+          },
+          {
+            "pass": 12,
+            "pulling_stress_mpa": 188.93262810791222,
+            "safety_factor": 0.24180290376532218,
+            "true_strain": 0.127833371509885,
+            "grain_um": 0.5
+          },
+          {
+            "pass": 13,
+            "pulling_stress_mpa": 188.93262810791222,
+            "safety_factor": 0.24180290376532218,
+            "true_strain": 0.127833371509885,
+            "grain_um": 0.5
+          },
+          {
+            "pass": 14,
+            "pulling_stress_mpa": 188.93262810791222,
+            "safety_factor": 0.24180290376532218,
+            "true_strain": 0.127833371509885,
+            "grain_um": 0.5
+          },
+          {
+            "pass": 15,
+            "pulling_stress_mpa": 188.93262810791222,
+            "safety_factor": 0.24180290376532218,
+            "true_strain": 0.127833371509885,
+            "grain_um": 0.5
+          },
+          {
+            "pass": 16,
+            "pulling_stress_mpa": 188.93262810791222,
+            "safety_factor": 0.24180290376532218,
+            "true_strain": 0.127833371509885,
+            "grain_um": 0.5
+          },
+          {
+            "pass": 17,
+            "pulling_stress_mpa": 188.93262810791222,
+            "safety_factor": 0.24180290376532218,
+            "true_strain": 0.127833371509885,
+            "grain_um": 0.5
+          }
+        ]
+      },
+      "detail_rows": [
+        {
+          "pass": 1,
+          "item": "Die",
+          "alpha_deg": 12.0,
+          "r": 0.12,
+          "od_before": 12.0,
+          "id_before": 9.9,
+          "od_after": 11.256997823576231,
+          "id_after": 9.28702320445039,
+          "notes": "",
+          "row_kind": "die"
+        },
+        {
+          "pass": 2,
+          "item": "Die",
+          "alpha_deg": 12.0,
+          "r": 0.12,
+          "od_before": 11.256997823576231,
+          "id_before": 9.28702320445039,
+          "od_after": 10.56,
+          "id_after": 8.712,
+          "notes": "",
+          "row_kind": "die"
+        },
+        {
+          "pass": 3,
+          "item": "Die",
+          "alpha_deg": 12.0,
+          "r": 0.12,
+          "od_before": 10.56,
+          "id_before": 8.712,
+          "od_after": 9.906158084747084,
+          "id_after": 8.172580419916343,
+          "notes": "",
+          "row_kind": "die"
+        },
+        {
+          "pass": 4,
+          "item": "Die",
+          "alpha_deg": 12.0,
+          "r": 0.12,
+          "od_before": 9.906158084747084,
+          "id_before": 8.172580419916343,
+          "od_after": 9.292800000000002,
+          "id_after": 7.6665600000000005,
+          "notes": "",
+          "row_kind": "die"
+        },
+        {
+          "pass": 5,
+          "item": "Die",
+          "alpha_deg": 12.0,
+          "r": 0.12,
+          "od_before": 9.292800000000002,
+          "id_before": 7.6665600000000005,
+          "od_after": 8.717419114577433,
+          "id_after": 7.191870769526382,
+          "notes": "",
+          "row_kind": "die"
+        },
+        {
+          "pass": 6,
+          "item": "Die",
+          "alpha_deg": 12.0,
+          "r": 0.12,
+          "od_before": 8.717419114577433,
+          "id_before": 7.191870769526382,
+          "od_after": 8.177664,
+          "id_after": 6.746572799999999,
+          "notes": "",
+          "row_kind": "die"
+        },
+        {
+          "pass": 7,
+          "item": "Die",
+          "alpha_deg": 12.0,
+          "r": 0.12,
+          "od_before": 8.177664,
+          "id_before": 6.746572799999999,
+          "od_after": 7.671328820828141,
+          "id_after": 6.328846277183216,
+          "notes": "",
+          "row_kind": "die"
+        },
+        {
+          "pass": 8,
+          "item": "Die",
+          "alpha_deg": 12.0,
+          "r": 0.12,
+          "od_before": 7.671328820828141,
+          "id_before": 6.328846277183216,
+          "od_after": 7.196344320000001,
+          "id_after": 5.936984064,
+          "notes": "",
+          "row_kind": "die"
+        },
+        {
+          "pass": 9,
+          "item": "Die",
+          "alpha_deg": 12.0,
+          "r": 0.12,
+          "od_before": 7.196344320000001,
+          "id_before": 5.936984064,
+          "od_after": 6.750769362328765,
+          "id_after": 5.569384723921231,
+          "notes": "",
+          "row_kind": "die"
+        },
+        {
+          "pass": 10,
+          "item": "Die",
+          "alpha_deg": 12.0,
+          "r": 0.12,
+          "od_before": 6.750769362328765,
+          "id_before": 5.569384723921231,
+          "od_after": 6.332783001600001,
+          "id_after": 5.224545976320001,
+          "notes": "",
+          "row_kind": "die"
+        },
+        {
+          "pass": 11,
+          "item": "Die",
+          "alpha_deg": 12.0,
+          "r": 0.12,
+          "od_before": 6.332783001600001,
+          "id_before": 5.224545976320001,
+          "od_after": 5.940677038849313,
+          "id_after": 4.901058557050683,
+          "notes": "",
+          "row_kind": "die"
+        },
+        {
+          "pass": 12,
+          "item": "Die",
+          "alpha_deg": 12.0,
+          "r": 0.12,
+          "od_before": 5.940677038849313,
+          "id_before": 4.901058557050683,
+          "od_after": 5.572849041408,
+          "id_after": 4.5976004591616,
+          "notes": "",
+          "row_kind": "die"
+        },
+        {
+          "pass": 13,
+          "item": "Die",
+          "alpha_deg": 12.0,
+          "r": 0.12,
+          "od_before": 5.572849041408,
+          "id_before": 4.5976004591616,
+          "od_after": 5.227795794187395,
+          "id_after": 4.312931530204601,
+          "notes": "",
+          "row_kind": "die"
+        },
+        {
+          "pass": 14,
+          "item": "Die",
+          "alpha_deg": 12.0,
+          "r": 0.12,
+          "od_before": 5.227795794187395,
+          "id_before": 4.312931530204601,
+          "od_after": 4.90410715643904,
+          "id_after": 4.045888404062208,
+          "notes": "",
+          "row_kind": "die"
+        },
+        {
+          "pass": 15,
+          "item": "Die",
+          "alpha_deg": 12.0,
+          "r": 0.12,
+          "od_before": 4.90410715643904,
+          "id_before": 4.045888404062208,
+          "od_after": 4.600460298884907,
+          "id_after": 3.795379746580049,
+          "notes": "",
+          "row_kind": "die"
+        },
+        {
+          "pass": 16,
+          "item": "Die",
+          "alpha_deg": 12.0,
+          "r": 0.12,
+          "od_before": 4.600460298884907,
+          "id_before": 3.795379746580049,
+          "od_after": 4.315614297666355,
+          "id_after": 3.5603817955747434,
+          "notes": "",
+          "row_kind": "die"
+        },
+        {
+          "pass": 17,
+          "item": "Die",
+          "alpha_deg": 12.0,
+          "r": 0.12,
+          "od_before": 4.315614297666355,
+          "id_before": 3.5603817955747434,
+          "od_after": 4.048405063018718,
+          "id_after": 3.3399341769904436,
+          "notes": "",
+          "row_kind": "die"
+        }
+      ]
+    },
+    "quotation": null
+  },
+  "project": {
+    "in_od_mm": 12.0,
+    "in_id_mm": 9.9,
+    "out_od_mm": 9.5,
+    "out_id_mm": 9.3,
+    "material": "316L stainless steel",
+    "drawing_method": "Sink drawing (rodless drawing)",
+    "pass_schedule": {
+      "simulation_backend": "analytical",
+      "passes": [
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        },
+        {
+          "r": 0.12,
+          "alpha_deg": 12.0,
+          "mu": 0.06,
+          "temperature": "1050",
+          "time": "45",
+          "protective_gas": "",
+          "equipment": "",
+          "notes": ""
+        }
+      ]
+    },
+    "die_inventory": [],
+    "die_inventory_angle_tolerance_deg": 0.5,
+    "note": "316L stainless steel \u2014 17 pass(es)"
+  },
+  "pass_schedule": {
+    "simulation_backend": "analytical",
+    "passes": [
+      {
+        "r": 0.12,
+        "alpha_deg": 12.0,
+        "mu": 0.06,
+        "temperature": "1050",
+        "time": "45",
+        "protective_gas": "",
+        "equipment": "",
+        "notes": ""
+      },
+      {
+        "r": 0.12,
+        "alpha_deg": 12.0,
+        "mu": 0.06,
+        "temperature": "1050",
+        "time": "45",
+        "protective_gas": "",
+        "equipment": "",
+        "notes": ""
+      },
+      {
+        "r": 0.12,
+        "alpha_deg": 12.0,
+        "mu": 0.06,
+        "temperature": "1050",
+        "time": "45",
+        "protective_gas": "",
+        "equipment": "",
+        "notes": ""
+      },
+      {
+        "r": 0.12,
+        "alpha_deg": 12.0,
+        "mu": 0.06,
+        "temperature": "1050",
+        "time": "45",
+        "protective_gas": "",
+        "equipment": "",
+        "notes": ""
+      },
+      {
+        "r": 0.12,
+        "alpha_deg": 12.0,
+        "mu": 0.06,
+        "temperature": "1050",
+        "time": "45",
+        "protective_gas": "",
+        "equipment": "",
+        "notes": ""
+      },
+      {
+        "r": 0.12,
+        "alpha_deg": 12.0,
+        "mu": 0.06,
+        "temperature": "1050",
+        "time": "45",
+        "protective_gas": "",
+        "equipment": "",
+        "notes": ""
+      },
+      {
+        "r": 0.12,
+        "alpha_deg": 12.0,
+        "mu": 0.06,
+        "temperature": "1050",
+        "time": "45",
+        "protective_gas": "",
+        "equipment": "",
+        "notes": ""
+      },
+      {
+        "r": 0.12,
+        "alpha_deg": 12.0,
+        "mu": 0.06,
+        "temperature": "1050",
+        "time": "45",
+        "protective_gas": "",
+        "equipment": "",
+        "notes": ""
+      },
+      {
+        "r": 0.12,
+        "alpha_deg": 12.0,
+        "mu": 0.06,
+        "temperature": "1050",
+        "time": "45",
+        "protective_gas": "",
+        "equipment": "",
+        "notes": ""
+      },
+      {
+        "r": 0.12,
+        "alpha_deg": 12.0,
+        "mu": 0.06,
+        "temperature": "1050",
+        "time": "45",
+        "protective_gas": "",
+        "equipment": "",
+        "notes": ""
+      },
+      {
+        "r": 0.12,
+        "alpha_deg": 12.0,
+        "mu": 0.06,
+        "temperature": "1050",
+        "time": "45",
+        "protective_gas": "",
+        "equipment": "",
+        "notes": ""
+      },
+      {
+        "r": 0.12,
+        "alpha_deg": 12.0,
+        "mu": 0.06,
+        "temperature": "1050",
+        "time": "45",
+        "protective_gas": "",
+        "equipment": "",
+        "notes": ""
+      },
+      {
+        "r": 0.12,
+        "alpha_deg": 12.0,
+        "mu": 0.06,
+        "temperature": "1050",
+        "time": "45",
+        "protective_gas": "",
+        "equipment": "",
+        "notes": ""
+      },
+      {
+        "r": 0.12,
+        "alpha_deg": 12.0,
+        "mu": 0.06,
+        "temperature": "1050",
+        "time": "45",
+        "protective_gas": "",
+        "equipment": "",
+        "notes": ""
+      },
+      {
+        "r": 0.12,
+        "alpha_deg": 12.0,
+        "mu": 0.06,
+        "temperature": "1050",
+        "time": "45",
+        "protective_gas": "",
+        "equipment": "",
+        "notes": ""
+      },
+      {
+        "r": 0.12,
+        "alpha_deg": 12.0,
+        "mu": 0.06,
+        "temperature": "1050",
+        "time": "45",
+        "protective_gas": "",
+        "equipment": "",
+        "notes": ""
+      },
+      {
+        "r": 0.12,
+        "alpha_deg": 12.0,
+        "mu": 0.06,
+        "temperature": "1050",
+        "time": "45",
+        "protective_gas": "",
+        "equipment": "",
+        "notes": ""
+      }
+    ]
+  },
+  "pass_bom": {
+    "version": 2,
+    "currency": "USD",
+    "lines": [
+      {
+        "item": "Pass 1 drawing",
+        "qty": 1.0,
+        "unit": "pass",
+        "unit_cost": 0.0,
+        "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u224810.74 \u00b5m"
+      },
+      {
+        "item": "Pass 2 drawing",
+        "qty": 1.0,
+        "unit": "pass",
+        "unit_cost": 0.0,
+        "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22487.69 \u00b5m"
+      },
+      {
+        "item": "Pass 3 drawing",
+        "qty": 1.0,
+        "unit": "pass",
+        "unit_cost": 0.0,
+        "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22485.51 \u00b5m"
+      },
+      {
+        "item": "Pass 4 drawing",
+        "qty": 1.0,
+        "unit": "pass",
+        "unit_cost": 0.0,
+        "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22483.95 \u00b5m"
+      },
+      {
+        "item": "Pass 5 drawing",
+        "qty": 1.0,
+        "unit": "pass",
+        "unit_cost": 0.0,
+        "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22482.83 \u00b5m"
+      },
+      {
+        "item": "Pass 6 drawing",
+        "qty": 1.0,
+        "unit": "pass",
+        "unit_cost": 0.0,
+        "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22482.02 \u00b5m"
+      },
+      {
+        "item": "Pass 7 drawing",
+        "qty": 1.0,
+        "unit": "pass",
+        "unit_cost": 0.0,
+        "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22481.45 \u00b5m"
+      },
+      {
+        "item": "Pass 8 drawing",
+        "qty": 1.0,
+        "unit": "pass",
+        "unit_cost": 0.0,
+        "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22481.04 \u00b5m"
+      },
+      {
+        "item": "Pass 9 drawing",
+        "qty": 1.0,
+        "unit": "pass",
+        "unit_cost": 0.0,
+        "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22480.74 \u00b5m"
+      },
+      {
+        "item": "Pass 10 drawing",
+        "qty": 1.0,
+        "unit": "pass",
+        "unit_cost": 0.0,
+        "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22480.53 \u00b5m"
+      },
+      {
+        "item": "Pass 11 drawing",
+        "qty": 1.0,
+        "unit": "pass",
+        "unit_cost": 0.0,
+        "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22480.50 \u00b5m"
+      },
+      {
+        "item": "Pass 12 drawing",
+        "qty": 1.0,
+        "unit": "pass",
+        "unit_cost": 0.0,
+        "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22480.50 \u00b5m"
+      },
+      {
+        "item": "Pass 13 drawing",
+        "qty": 1.0,
+        "unit": "pass",
+        "unit_cost": 0.0,
+        "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22480.50 \u00b5m"
+      },
+      {
+        "item": "Pass 14 drawing",
+        "qty": 1.0,
+        "unit": "pass",
+        "unit_cost": 0.0,
+        "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22480.50 \u00b5m"
+      },
+      {
+        "item": "Pass 15 drawing",
+        "qty": 1.0,
+        "unit": "pass",
+        "unit_cost": 0.0,
+        "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22480.50 \u00b5m"
+      },
+      {
+        "item": "Pass 16 drawing",
+        "qty": 1.0,
+        "unit": "pass",
+        "unit_cost": 0.0,
+        "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22480.50 \u00b5m"
+      },
+      {
+        "item": "Pass 17 drawing",
+        "qty": 1.0,
+        "unit": "pass",
+        "unit_cost": 0.0,
+        "notes": "\u03c3_pull\u2248188.9 MPa, SF\u22480.24, grain\u22480.50 \u00b5m"
+      }
+    ],
+    "simulation_summary": {
+      "version": 1,
+      "simulation_backend": "analytical",
+      "in_od_mm": 12.0,
+      "in_id_mm": 9.9,
+      "out_od_mm": 4.048405063018718,
+      "out_id_mm": 3.3399341769904436,
+      "pass_metrics": [
+        {
+          "pass": 1,
+          "pulling_stress_mpa": 188.93262810791222,
+          "safety_factor": 0.24180290376532218,
+          "true_strain": 0.127833371509885,
+          "grain_um": 10.742916914481299
+        },
+        {
+          "pass": 2,
+          "pulling_stress_mpa": 188.93262810791222,
+          "safety_factor": 0.24180290376532218,
+          "true_strain": 0.127833371509885,
+          "grain_um": 7.694017588763226
+        },
+        {
+          "pass": 3,
+          "pulling_stress_mpa": 188.93262810791222,
+          "safety_factor": 0.24180290376532218,
+          "true_strain": 0.127833371509885,
+          "grain_um": 5.5104127796427385
+        },
+        {
+          "pass": 4,
+          "pulling_stress_mpa": 188.93262810791222,
+          "safety_factor": 0.24180290376532218,
+          "true_strain": 0.127833371509885,
+          "grain_um": 3.9465271104131925
+        },
+        {
+          "pass": 5,
+          "pulling_stress_mpa": 188.93262810791222,
+          "safety_factor": 0.24180290376532218,
+          "true_strain": 0.127833371509885,
+          "grain_um": 2.826480856527793
+        },
+        {
+          "pass": 6,
+          "pulling_stress_mpa": 188.93262810791222,
+          "safety_factor": 0.24180290376532218,
+          "true_strain": 0.127833371509885,
+          "grain_um": 2.024309933470001
+        },
+        {
+          "pass": 7,
+          "pulling_stress_mpa": 188.93262810791222,
+          "safety_factor": 0.24180290376532218,
+          "true_strain": 0.127833371509885,
+          "grain_um": 1.4497995616284924
+        },
+        {
+          "pass": 8,
+          "pulling_stress_mpa": 188.93262810791222,
+          "safety_factor": 0.24180290376532218,
+          "true_strain": 0.127833371509885,
+          "grain_um": 1.0383384155484203
+        },
+        {
+          "pass": 9,
+          "pulling_stress_mpa": 188.93262810791222,
+          "safety_factor": 0.24180290376532218,
+          "true_strain": 0.127833371509885,
+          "grain_um": 0.7436522218233891
+        },
+        {
+          "pass": 10,
+          "pulling_stress_mpa": 188.93262810791222,
+          "safety_factor": 0.24180290376532218,
+          "true_strain": 0.127833371509885,
+          "grain_um": 0.532599602154539
+        },
+        {
+          "pass": 11,
+          "pulling_stress_mpa": 188.93262810791222,
+          "safety_factor": 0.24180290376532218,
+          "true_strain": 0.127833371509885,
+          "grain_um": 0.5
+        },
+        {
+          "pass": 12,
+          "pulling_stress_mpa": 188.93262810791222,
+          "safety_factor": 0.24180290376532218,
+          "true_strain": 0.127833371509885,
+          "grain_um": 0.5
+        },
+        {
+          "pass": 13,
+          "pulling_stress_mpa": 188.93262810791222,
+          "safety_factor": 0.24180290376532218,
+          "true_strain": 0.127833371509885,
+          "grain_um": 0.5
+        },
+        {
+          "pass": 14,
+          "pulling_stress_mpa": 188.93262810791222,
+          "safety_factor": 0.24180290376532218,
+          "true_strain": 0.127833371509885,
+          "grain_um": 0.5
+        },
+        {
+          "pass": 15,
+          "pulling_stress_mpa": 188.93262810791222,
+          "safety_factor": 0.24180290376532218,
+          "true_strain": 0.127833371509885,
+          "grain_um": 0.5
+        },
+        {
+          "pass": 16,
+          "pulling_stress_mpa": 188.93262810791222,
+          "safety_factor": 0.24180290376532218,
+          "true_strain": 0.127833371509885,
+          "grain_um": 0.5
+        },
+        {
+          "pass": 17,
+          "pulling_stress_mpa": 188.93262810791222,
+          "safety_factor": 0.24180290376532218,
+          "true_strain": 0.127833371509885,
+          "grain_um": 0.5
+        }
+      ]
+    },
+    "detail_rows": [
+      {
+        "pass": 1,
+        "item": "Die",
+        "alpha_deg": 12.0,
+        "r": 0.12,
+        "od_before": 12.0,
+        "id_before": 9.9,
+        "od_after": 11.256997823576231,
+        "id_after": 9.28702320445039,
+        "notes": "",
+        "row_kind": "die"
+      },
+      {
+        "pass": 2,
+        "item": "Die",
+        "alpha_deg": 12.0,
+        "r": 0.12,
+        "od_before": 11.256997823576231,
+        "id_before": 9.28702320445039,
+        "od_after": 10.56,
+        "id_after": 8.712,
+        "notes": "",
+        "row_kind": "die"
+      },
+      {
+        "pass": 3,
+        "item": "Die",
+        "alpha_deg": 12.0,
+        "r": 0.12,
+        "od_before": 10.56,
+        "id_before": 8.712,
+        "od_after": 9.906158084747084,
+        "id_after": 8.172580419916343,
+        "notes": "",
+        "row_kind": "die"
+      },
+      {
+        "pass": 4,
+        "item": "Die",
+        "alpha_deg": 12.0,
+        "r": 0.12,
+        "od_before": 9.906158084747084,
+        "id_before": 8.172580419916343,
+        "od_after": 9.292800000000002,
+        "id_after": 7.6665600000000005,
+        "notes": "",
+        "row_kind": "die"
+      },
+      {
+        "pass": 5,
+        "item": "Die",
+        "alpha_deg": 12.0,
+        "r": 0.12,
+        "od_before": 9.292800000000002,
+        "id_before": 7.6665600000000005,
+        "od_after": 8.717419114577433,
+        "id_after": 7.191870769526382,
+        "notes": "",
+        "row_kind": "die"
+      },
+      {
+        "pass": 6,
+        "item": "Die",
+        "alpha_deg": 12.0,
+        "r": 0.12,
+        "od_before": 8.717419114577433,
+        "id_before": 7.191870769526382,
+        "od_after": 8.177664,
+        "id_after": 6.746572799999999,
+        "notes": "",
+        "row_kind": "die"
+      },
+      {
+        "pass": 7,
+        "item": "Die",
+        "alpha_deg": 12.0,
+        "r": 0.12,
+        "od_before": 8.177664,
+        "id_before": 6.746572799999999,
+        "od_after": 7.671328820828141,
+        "id_after": 6.328846277183216,
+        "notes": "",
+        "row_kind": "die"
+      },
+      {
+        "pass": 8,
+        "item": "Die",
+        "alpha_deg": 12.0,
+        "r": 0.12,
+        "od_before": 7.671328820828141,
+        "id_before": 6.328846277183216,
+        "od_after": 7.196344320000001,
+        "id_after": 5.936984064,
+        "notes": "",
+        "row_kind": "die"
+      },
+      {
+        "pass": 9,
+        "item": "Die",
+        "alpha_deg": 12.0,
+        "r": 0.12,
+        "od_before": 7.196344320000001,
+        "id_before": 5.936984064,
+        "od_after": 6.750769362328765,
+        "id_after": 5.569384723921231,
+        "notes": "",
+        "row_kind": "die"
+      },
+      {
+        "pass": 10,
+        "item": "Die",
+        "alpha_deg": 12.0,
+        "r": 0.12,
+        "od_before": 6.750769362328765,
+        "id_before": 5.569384723921231,
+        "od_after": 6.332783001600001,
+        "id_after": 5.224545976320001,
+        "notes": "",
+        "row_kind": "die"
+      },
+      {
+        "pass": 11,
+        "item": "Die",
+        "alpha_deg": 12.0,
+        "r": 0.12,
+        "od_before": 6.332783001600001,
+        "id_before": 5.224545976320001,
+        "od_after": 5.940677038849313,
+        "id_after": 4.901058557050683,
+        "notes": "",
+        "row_kind": "die"
+      },
+      {
+        "pass": 12,
+        "item": "Die",
+        "alpha_deg": 12.0,
+        "r": 0.12,
+        "od_before": 5.940677038849313,
+        "id_before": 4.901058557050683,
+        "od_after": 5.572849041408,
+        "id_after": 4.5976004591616,
+        "notes": "",
+        "row_kind": "die"
+      },
+      {
+        "pass": 13,
+        "item": "Die",
+        "alpha_deg": 12.0,
+        "r": 0.12,
+        "od_before": 5.572849041408,
+        "id_before": 4.5976004591616,
+        "od_after": 5.227795794187395,
+        "id_after": 4.312931530204601,
+        "notes": "",
+        "row_kind": "die"
+      },
+      {
+        "pass": 14,
+        "item": "Die",
+        "alpha_deg": 12.0,
+        "r": 0.12,
+        "od_before": 5.227795794187395,
+        "id_before": 4.312931530204601,
+        "od_after": 4.90410715643904,
+        "id_after": 4.045888404062208,
+        "notes": "",
+        "row_kind": "die"
+      },
+      {
+        "pass": 15,
+        "item": "Die",
+        "alpha_deg": 12.0,
+        "r": 0.12,
+        "od_before": 4.90410715643904,
+        "id_before": 4.045888404062208,
+        "od_after": 4.600460298884907,
+        "id_after": 3.795379746580049,
+        "notes": "",
+        "row_kind": "die"
+      },
+      {
+        "pass": 16,
+        "item": "Die",
+        "alpha_deg": 12.0,
+        "r": 0.12,
+        "od_before": 4.600460298884907,
+        "id_before": 3.795379746580049,
+        "od_after": 4.315614297666355,
+        "id_after": 3.5603817955747434,
+        "notes": "",
+        "row_kind": "die"
+      },
+      {
+        "pass": 17,
+        "item": "Die",
+        "alpha_deg": 12.0,
+        "r": 0.12,
+        "od_before": 4.315614297666355,
+        "id_before": 3.5603817955747434,
+        "od_after": 4.048405063018718,
+        "id_after": 3.3399341769904436,
+        "notes": "",
+        "row_kind": "die"
+      }
+    ]
+  },
+  "quotation": null
+}
