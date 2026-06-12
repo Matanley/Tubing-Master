@@ -415,7 +415,8 @@ class TubingMaster(QMainWindow):
         )
         method_form.addRow("Process", self.drawing_method_combo)
 
-        material_box = QGroupBox("Material")
+        self.material_box = QGroupBox("Material")
+        material_box = self.material_box
         material_form = QFormLayout(material_box)
         self.material_combo = QComboBox()
         self.material_combo.addItems(list(MATERIAL_PRESET_LABELS))
@@ -430,6 +431,7 @@ class TubingMaster(QMainWindow):
         self.material_properties_btn.clicked.connect(self._open_material_properties_dialog)
         material_form.addRow("", self.material_properties_btn)
         self.material_combo.installEventFilter(self)
+        material_box.installEventFilter(self)
 
         for box in (in_box, out_box, method_box, material_box):
             box.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -1427,7 +1429,8 @@ class TubingMaster(QMainWindow):
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         if event.type() == QEvent.Type.Resize:
             combo = getattr(self, "material_combo", None)
-            if combo is not None and watched is combo:
+            material_box = getattr(self, "material_box", None)
+            if combo is not None and watched in (combo, material_box):
                 self._sync_material_property_btn_width()
             strip = getattr(self, "tubing_cross_section_strip", None)
             if strip is not None and watched is strip:
@@ -3697,13 +3700,15 @@ class TubingMaster(QMainWindow):
 
     def _sync_material_property_btn_width(self) -> None:
         """Match Edit Material Property button width to the material combo (combo unchanged)."""
-        if not getattr(self, "material_combo", None) or not getattr(
-            self, "material_properties_btn", None
-        ):
+        combo = getattr(self, "material_combo", None)
+        btn = getattr(self, "material_properties_btn", None)
+        if combo is None or btn is None:
             return
-        w = int(self.material_combo.width())
+        w = int(combo.width())
+        if w <= 0:
+            w = int(combo.sizeHint().width())
         if w > 0:
-            self.material_properties_btn.setFixedWidth(w)
+            btn.setFixedWidth(w)
 
     def _on_material_or_drawing_changed(self) -> None:
         self._commit_tubing_project_diameter_edits()
