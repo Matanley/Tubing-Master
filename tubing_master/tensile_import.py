@@ -7,6 +7,69 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+_UNIT_TOKEN = (
+    r"(?:MPa|M\s*Pa|GPa|G\s*Pa|ksi|KSI|psi|PSI|psig|"
+    r"N/mm²|N/mm2|N/mm\^2|kN/mm²|kN/mm2|megapascal|gigapascal)"
+)
+_CAPTURE_UNIT_TOKEN = (
+    r"(MPa|M\s*Pa|GPa|G\s*Pa|ksi|KSI|psi|PSI|psig|"
+    r"N/mm²|N/mm2|N/mm\^2|kN/mm²|kN/mm2|megapascal|gigapascal)"
+)
+
+_CAPTURE_STRAIN_UNIT_TOKEN = (
+    r"(%|percent|strain|ε|epsilon|με|μɛ|µε|microstrain|"
+    r"in/in|in\.?/in\.?|mm/mm|mm\.?/mm\.?)"
+)
+
+# Document / diagram axis unit declarations (used when a value omits its own suffix).
+_DOC_STRESS_UNIT_RES: List[re.Pattern[str]] = [
+    re.compile(rf"all\s+stresses?\s+(?:in|are|reported\s+in)\s*{_CAPTURE_UNIT_TOKEN}", re.IGNORECASE),
+    re.compile(rf"stress(?:es)?\s*(?:,|\(|\[|:)\s*{_CAPTURE_UNIT_TOKEN}", re.IGNORECASE),
+    re.compile(rf"(?:units?|scale)\s*(?:\(|\[|:)\s*{_CAPTURE_UNIT_TOKEN}", re.IGNORECASE),
+    re.compile(
+        rf"(?:y[-\s]?axis|ordinate|vertical\s+axis|stress\s+axis)"
+        rf"[^.\n]{{0,40}}?(?:\(|\[|:)\s*{_CAPTURE_UNIT_TOKEN}",
+        re.IGNORECASE,
+    ),
+    re.compile(rf"stress\s+{_CAPTURE_UNIT_TOKEN}\b", re.IGNORECASE),
+    re.compile(rf"\(\s*{_CAPTURE_UNIT_TOKEN}\s*\)\s*(?:vs\.?|versus)\s*strain", re.IGNORECASE),
+]
+
+_DOC_STRAIN_UNIT_RES: List[re.Pattern[str]] = [
+    re.compile(rf"all\s+strains?\s+(?:in|are|reported\s+in)\s*{_CAPTURE_STRAIN_UNIT_TOKEN}", re.IGNORECASE),
+    re.compile(rf"strain(?:s)?\s*(?:,|\(|\[|:)\s*{_CAPTURE_STRAIN_UNIT_TOKEN}", re.IGNORECASE),
+    re.compile(
+        rf"(?:x[-\s]?axis|abscissa|horizontal\s+axis|strain\s+axis)"
+        rf"[^.\n]{{0,40}}?(?:\(|\[|:)\s*{_CAPTURE_STRAIN_UNIT_TOKEN}",
+        re.IGNORECASE,
+    ),
+    re.compile(rf"strain\s+{_CAPTURE_STRAIN_UNIT_TOKEN}\b", re.IGNORECASE),
+    re.compile(
+        rf"strain\s*\(\s*{_CAPTURE_STRAIN_UNIT_TOKEN}\s*\)\s*(?:vs\.?|versus)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        rf"(?:vs\.?|versus)\s*strain\s*\(\s*{_CAPTURE_STRAIN_UNIT_TOKEN}\s*\)",
+        re.IGNORECASE,
+    ),
+]
+
+# Combined diagram title, e.g. "Stress (ksi) vs Strain (%)".
+_DIAGRAM_STRESS_STRAIN_RE = re.compile(
+    rf"(?:stress|σ)\s*\(\s*{_CAPTURE_UNIT_TOKEN}\s*\)\s*(?:vs\.?|versus)\s*"
+    rf"(?:strain|ε)\s*\(\s*{_CAPTURE_STRAIN_UNIT_TOKEN}\s*\)",
+    re.IGNORECASE,
+)
+
+_DOC_MODULUS_UNIT_RES: List[re.Pattern[str]] = [
+    re.compile(
+        rf"(?:young(?:['\u2019]s)?\s*modulus|elastic\s+modulus|modulus\s+of\s+elasticity|\bE\b)"
+        rf"[^.\n]{{0,40}}?(?:\(|\[|:)\s*{_CAPTURE_UNIT_TOKEN}",
+        re.IGNORECASE,
+    ),
+    re.compile(rf"modulus\s+{_CAPTURE_UNIT_TOKEN}\b", re.IGNORECASE),
+]
+
 # (regex, logical field, default unit if omitted)
 _TENSILE_PATTERNS: List[Tuple[str, str, str]] = [
     (
@@ -104,6 +167,17 @@ _UNLOAD_PLATEAU_RANGE_RE = re.compile(
 
 
 @dataclass
+class TensileParseReport:
+    """Parsed tensile metrics plus unit metadata from the report / diagram."""
+
+    values: Dict[str, float] = field(default_factory=dict)
+    stress_unit: Optional[str] = None
+    modulus_unit: Optional[str] = None
+    strain_unit: Optional[str] = None
+    value_units: Dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
 class NitinolCycleAssessment:
     has_loading_plateau: bool
     has_unloading_plateau: bool
@@ -139,6 +213,131 @@ class TensileImportResult:
     parsed: Dict[str, float] = field(default_factory=dict)
     comparison_rows: List[TensileComparisonRow] = field(default_factory=list)
     nitinol_cycle: Optional[NitinolCycleAssessment] = None
+    stress_unit: Optional[str] = None
+    modulus_unit: Optional[str] = None
+    strain_unit: Optional[str] = None
+    value_units: Dict[str, str] = field(default_factory=dict)
+
+
+def _normalize_unit_token(raw: str) -> str:
+    u = raw.strip().lower().replace("²", "2").replace(" ", "")
+    aliases = {
+        "mpa": "MPa",
+        "n/mm2": "MPa",
+        "n/mm^2": "MPa",
+        "kn/mm2": "GPa",
+        "kn/mm^2": "GPa",
+        "gpa": "GPa",
+        "ksi": "ksi",
+        "psi": "psi",
+        "psig": "psi",
+        "megapascal": "MPa",
+        "gigapascal": "GPa",
+    }
+    return aliases.get(u, raw.strip())
+
+
+def _normalize_strain_unit(raw: str) -> str:
+    u = raw.strip().lower().replace(" ", "").replace("µ", "μ")
+    aliases = {
+        "%": "%",
+        "percent": "%",
+        "pct": "%",
+        "strain": "strain",
+        "ε": "strain",
+        "epsilon": "strain",
+        "in/in": "strain",
+        "in./in.": "strain",
+        "in/in.": "strain",
+        "mm/mm": "strain",
+        "mm./mm.": "strain",
+        "mm/mm.": "strain",
+        "με": "microstrain",
+        "μɛ": "microstrain",
+        "microstrain": "microstrain",
+    }
+    return aliases.get(u, raw.strip())
+
+
+def _detect_unit_from_patterns(blob: str, patterns: List[re.Pattern[str]]) -> Optional[str]:
+    for pat in patterns:
+        m = pat.search(blob)
+        if m:
+            return _normalize_unit_token(m.group(1))
+    return None
+
+
+def _detect_strain_unit_from_patterns(blob: str, patterns: List[re.Pattern[str]]) -> Optional[str]:
+    for pat in patterns:
+        m = pat.search(blob)
+        if m:
+            return _normalize_strain_unit(m.group(1))
+    return None
+
+
+def detect_diagram_axis_units(text: str) -> Tuple[Optional[str], Optional[str]]:
+    """Infer stress (Y) and strain (X) units from a combined diagram label if present."""
+    if not text or not text.strip():
+        return None, None
+    blob = " ".join(text.split())
+    m = _DIAGRAM_STRESS_STRAIN_RE.search(blob)
+    if not m:
+        return None, None
+    return _normalize_unit_token(m.group(1)), _normalize_strain_unit(m.group(2))
+
+
+def detect_report_stress_unit(text: str) -> Optional[str]:
+    """Infer stress axis / report stress unit (e.g. ksi from diagram axis label)."""
+    if not text or not text.strip():
+        return None
+    blob = " ".join(text.split())
+    stress, _strain = detect_diagram_axis_units(text)
+    if stress:
+        return stress
+    return _detect_unit_from_patterns(blob, _DOC_STRESS_UNIT_RES)
+
+
+def detect_report_modulus_unit(text: str) -> Optional[str]:
+    """Infer modulus unit when the report states it separately from stress."""
+    if not text or not text.strip():
+        return None
+    blob = " ".join(text.split())
+    return _detect_unit_from_patterns(blob, _DOC_MODULUS_UNIT_RES)
+
+
+def detect_report_strain_unit(text: str) -> Optional[str]:
+    """Infer strain axis / report strain unit (e.g. % from diagram X-axis label)."""
+    if not text or not text.strip():
+        return None
+    blob = " ".join(text.split())
+    _stress, strain = detect_diagram_axis_units(text)
+    if strain:
+        return strain
+    return _detect_strain_unit_from_patterns(blob, _DOC_STRAIN_UNIT_RES)
+
+
+def _default_unit_for_field(
+    key: str,
+    *,
+    stress_unit: Optional[str],
+    modulus_unit: Optional[str],
+    strain_unit: Optional[str],
+    pattern_default: str,
+) -> str:
+    if key == "E_mpa" or key == "e_martensite_mpa":
+        return modulus_unit or pattern_default
+    if key in (
+        "yield_mpa",
+        "base_uts_mpa",
+        "sigma_ms_mpa",
+        "sigma_mf_mpa",
+        "sigma_as_mpa",
+        "sigma_af_mpa",
+    ):
+        return stress_unit or pattern_default
+    if key in ("elongation_pct", "transformation_strain"):
+        return strain_unit or pattern_default
+    return pattern_default
 
 
 def _parse_number(raw: str) -> float:
@@ -149,10 +348,10 @@ def _parse_number(raw: str) -> float:
 
 
 def _stress_to_mpa(value: float, unit: str) -> float:
-    u = (unit or "MPa").strip().lower().replace("²", "2")
+    u = _normalize_unit_token(unit or "MPa").lower()
     if u in ("gpa",):
         return value * 1000.0
-    if u in ("mpa", "n/mm2", "n/mm²"):
+    if u in ("mpa",):
         return value
     if u in ("ksi",):
         return value * 6.894757
@@ -168,10 +367,31 @@ def _density_to_kg_m3(value: float, unit: str) -> float:
     return value
 
 
+def _elongation_to_pct(raw: float, unit: str) -> float:
+    """Convert elongation to percent (%) for storage in ``elongation_pct``."""
+    u = _normalize_strain_unit(unit).lower()
+    if u == "%":
+        return raw
+    if u == "microstrain":
+        return raw / 10000.0
+    if u == "strain":
+        if raw <= 1.0:
+            return raw * 100.0
+        return raw
+    if raw > 1.0:
+        return raw
+    return raw * 100.0
+
+
 def _strain_value(raw: float, unit: str) -> float:
-    u = (unit or "strain").strip().lower()
-    if u in ("%", "pct", "percent"):
+    """Convert to engineering strain (dimensionless decimal)."""
+    u = _normalize_strain_unit(unit).lower()
+    if u == "%":
         return raw / 100.0
+    if u == "microstrain":
+        return raw / 1_000_000.0
+    if u == "strain":
+        return raw
     if raw > 1.0:
         return raw / 100.0
     return raw
@@ -181,6 +401,11 @@ def _apply_patterns(
     blob: str,
     patterns: List[Tuple[str, str, str]],
     found: Dict[str, float],
+    *,
+    stress_unit: Optional[str] = None,
+    modulus_unit: Optional[str] = None,
+    strain_unit: Optional[str] = None,
+    value_units: Optional[Dict[str, str]] = None,
 ) -> None:
     for pattern, key, default_unit in patterns:
         if key in found:
@@ -189,9 +414,25 @@ def _apply_patterns(
         if not m:
             continue
         val = _parse_number(m.group(1))
-        unit = (m.group(2) if m.lastindex and m.lastindex >= 2 else None) or default_unit
+        explicit = m.group(2) if m.lastindex and m.lastindex >= 2 else None
+        if explicit:
+            unit = (
+                _normalize_strain_unit(explicit)
+                if key in ("elongation_pct", "transformation_strain")
+                else _normalize_unit_token(explicit)
+            )
+        else:
+            unit = _default_unit_for_field(
+                key,
+                stress_unit=stress_unit,
+                modulus_unit=modulus_unit,
+                strain_unit=strain_unit,
+                pattern_default=default_unit,
+            )
+        if value_units is not None and key not in value_units:
+            value_units[key] = unit
         if key == "elongation_pct":
-            found[key] = val
+            found[key] = _elongation_to_pct(val, unit)
         elif key == "density_kg_m3":
             found[key] = _density_to_kg_m3(val, unit)
         elif key == "transformation_strain":
@@ -200,33 +441,81 @@ def _apply_patterns(
             found[key] = _stress_to_mpa(val, unit)
 
 
-def _apply_nitinol_plateau_ranges(blob: str, found: Dict[str, float]) -> None:
+def _apply_nitinol_plateau_ranges(
+    blob: str,
+    found: Dict[str, float],
+    *,
+    stress_unit: Optional[str] = None,
+    value_units: Optional[Dict[str, str]] = None,
+) -> None:
     m = _PLATEAU_RANGE_RE.search(blob)
     if m:
-        unit = m.group(3) or "MPa"
+        unit = _normalize_unit_token(m.group(3) or stress_unit or "MPa")
         lo = _stress_to_mpa(_parse_number(m.group(1)), unit)
         hi = _stress_to_mpa(_parse_number(m.group(2)), unit)
         found.setdefault("sigma_ms_mpa", min(lo, hi))
         found.setdefault("sigma_mf_mpa", max(lo, hi))
+        if value_units is not None:
+            value_units.setdefault("sigma_ms_mpa", unit)
+            value_units.setdefault("sigma_mf_mpa", unit)
     m2 = _UNLOAD_PLATEAU_RANGE_RE.search(blob)
     if m2:
-        unit = m2.group(3) or "MPa"
+        unit = _normalize_unit_token(m2.group(3) or stress_unit or "MPa")
         lo = _stress_to_mpa(_parse_number(m2.group(1)), unit)
         hi = _stress_to_mpa(_parse_number(m2.group(2)), unit)
         found.setdefault("sigma_as_mpa", min(lo, hi))
         found.setdefault("sigma_af_mpa", max(lo, hi))
+        if value_units is not None:
+            value_units.setdefault("sigma_as_mpa", unit)
+            value_units.setdefault("sigma_af_mpa", unit)
+
+
+def parse_tensile_report(text: str) -> TensileParseReport:
+    """Extract tensile metrics and unit metadata from report text (best-effort regex)."""
+    if not text or not text.strip():
+        return TensileParseReport()
+    blob = " ".join(text.split())
+    stress_unit = detect_report_stress_unit(text)
+    modulus_unit = detect_report_modulus_unit(text)
+    strain_unit = detect_report_strain_unit(text)
+    found: Dict[str, float] = {}
+    value_units: Dict[str, str] = {}
+    _apply_patterns(
+        blob,
+        _TENSILE_PATTERNS,
+        found,
+        stress_unit=stress_unit,
+        modulus_unit=modulus_unit,
+        strain_unit=strain_unit,
+        value_units=value_units,
+    )
+    _apply_patterns(
+        blob,
+        _NITINOL_PATTERNS,
+        found,
+        stress_unit=stress_unit,
+        modulus_unit=modulus_unit,
+        strain_unit=strain_unit,
+        value_units=value_units,
+    )
+    _apply_nitinol_plateau_ranges(
+        blob,
+        found,
+        stress_unit=stress_unit,
+        value_units=value_units,
+    )
+    return TensileParseReport(
+        values=found,
+        stress_unit=stress_unit,
+        modulus_unit=modulus_unit,
+        strain_unit=strain_unit,
+        value_units=value_units,
+    )
 
 
 def parse_tensile_text(text: str) -> Dict[str, float]:
     """Extract tensile metrics from report text (best-effort regex)."""
-    if not text or not text.strip():
-        return {}
-    blob = " ".join(text.split())
-    found: Dict[str, float] = {}
-    _apply_patterns(blob, _TENSILE_PATTERNS, found)
-    _apply_patterns(blob, _NITINOL_PATTERNS, found)
-    _apply_nitinol_plateau_ranges(blob, found)
-    return found
+    return parse_tensile_report(text).values
 
 
 def assess_nitinol_cycle(text: str, parsed: Dict[str, float]) -> NitinolCycleAssessment:
@@ -379,6 +668,56 @@ def _fmt_mpa(value: float) -> str:
     return f"{value:.0f} MPa"
 
 
+def _mpa_to_display_unit(mpa: float, unit: str) -> float:
+    u = _normalize_unit_token(unit).lower()
+    if u == "gpa":
+        return mpa / 1000.0
+    if u == "ksi":
+        return mpa / 6.894757
+    if u == "psi":
+        return mpa / 0.006894757
+    return mpa
+
+
+def _fmt_report_stress(key: str, parsed: Dict[str, float], value_units: Dict[str, str]) -> str:
+    if key not in parsed:
+        return "—"
+    unit = _normalize_unit_token(value_units.get(key, "MPa"))
+    mpa = float(parsed[key])
+    if unit == "MPa":
+        return _fmt_mpa(mpa)
+    raw = _mpa_to_display_unit(mpa, unit)
+    return f"{raw:.3g} {unit} → {_fmt_mpa(mpa)}"
+
+
+def _fmt_report_elongation(parsed: Dict[str, float], value_units: Dict[str, str]) -> str:
+    if "elongation_pct" not in parsed:
+        return "—"
+    unit = _normalize_strain_unit(value_units.get("elongation_pct", "%"))
+    pct = float(parsed["elongation_pct"])
+    if unit == "%":
+        return _fmt_pct(pct)
+    if unit == "strain":
+        return f"{pct / 100.0:.4f} strain → {_fmt_pct(pct)}"
+    if unit == "microstrain":
+        return f"{pct * 10000.0:.0f} με → {_fmt_pct(pct)}"
+    return _fmt_pct(pct)
+
+
+def _fmt_report_strain_field(key: str, parsed: Dict[str, float], value_units: Dict[str, str]) -> str:
+    if key not in parsed:
+        return "—"
+    unit = _normalize_strain_unit(value_units.get(key, "strain"))
+    strain = float(parsed[key])
+    if unit == "strain":
+        return _fmt_strain(strain)
+    if unit == "%":
+        return f"{strain * 100.0:.2f} % → {_fmt_strain(strain)}"
+    if unit == "microstrain":
+        return f"{strain * 1_000_000.0:.0f} με → {_fmt_strain(strain)}"
+    return _fmt_strain(strain)
+
+
 def _fmt_strain(value: float) -> str:
     return f"{value:.4f}"
 
@@ -449,18 +788,23 @@ def build_tensile_comparison_rows(
     model: str,
     current: Optional[Dict[str, float]] = None,
     nitinol_cycle: Optional[NitinolCycleAssessment] = None,
+    value_units: Optional[Dict[str, str]] = None,
 ) -> List[TensileComparisonRow]:
     """Side-by-side rows: tensile report values vs fitted model properties."""
     fitted = _flatten_property_updates(updates)
     cur = dict(current or {})
+    units = dict(value_units or {})
     rows: List[TensileComparisonRow] = []
+
+    def report_stress(key: str) -> str:
+        return _fmt_report_stress(key, parsed, units)
 
     if model == "nitinol_superelastic":
         if "E_mpa" in parsed or "E_mpa" in fitted:
             rows.append(
                 _comparison_row(
                     report_label="Young's modulus E",
-                    report_value=_fmt_mpa(parsed["E_mpa"]) if "E_mpa" in parsed else "—",
+                    report_value=report_stress("E_mpa") if "E_mpa" in parsed else "—",
                     model_key="nitinol.e_austenite_mpa",
                     fitted=fitted,
                     current=cur,
@@ -478,7 +822,7 @@ def build_tensile_comparison_rows(
             rows.append(
                 _comparison_row(
                     report_label=rlabel,
-                    report_value=_fmt_mpa(parsed[rk]) if rk in parsed else "—",
+                    report_value=report_stress(rk) if rk in parsed else "—",
                     model_key=mk,
                     fitted=fitted,
                     current=cur,
@@ -497,10 +841,10 @@ def build_tensile_comparison_rows(
                 TensileComparisonRow(
                     report_label="Transformation strain ε_tr",
                     report_value=(
-                        _fmt_strain(parsed["transformation_strain"])
+                        _fmt_report_strain_field("transformation_strain", parsed, units)
                         if "transformation_strain" in parsed
                         else (
-                            _fmt_pct(parsed["elongation_pct"])
+                            _fmt_report_elongation(parsed, units)
                             if "elongation_pct" in parsed
                             else "—"
                         )
@@ -528,7 +872,7 @@ def build_tensile_comparison_rows(
                 _comparison_row(
                     report_label="Martensite modulus E_M",
                     report_value=(
-                        _fmt_mpa(parsed["e_martensite_mpa"]) if "e_martensite_mpa" in parsed else "—"
+                        report_stress("e_martensite_mpa") if "e_martensite_mpa" in parsed else "—"
                     ),
                     model_key="nitinol.e_martensite_mpa",
                     fitted=fitted,
@@ -541,7 +885,7 @@ def build_tensile_comparison_rows(
                 _comparison_row(
                     report_label="Ultimate tensile strength",
                     report_value=(
-                        _fmt_mpa(parsed["base_uts_mpa"]) if "base_uts_mpa" in parsed else "—"
+                        report_stress("base_uts_mpa") if "base_uts_mpa" in parsed else "—"
                     ),
                     model_key="nitinol.uts_mpa",
                     fitted=fitted,
@@ -554,7 +898,7 @@ def build_tensile_comparison_rows(
             rows.append(
                 _comparison_row(
                     report_label="Young's modulus E",
-                    report_value=_fmt_mpa(parsed["E_mpa"]) if "E_mpa" in parsed else "—",
+                    report_value=report_stress("E_mpa") if "E_mpa" in parsed else "—",
                     model_key="E_mpa",
                     fitted=fitted,
                     current=cur,
@@ -565,7 +909,7 @@ def build_tensile_comparison_rows(
             rows.append(
                 _comparison_row(
                     report_label="Yield / proof stress",
-                    report_value=_fmt_mpa(parsed["yield_mpa"]) if "yield_mpa" in parsed else "—",
+                    report_value=report_stress("yield_mpa") if "yield_mpa" in parsed else "—",
                     model_key="yield_mpa",
                     fitted=fitted,
                     current=cur,
@@ -576,7 +920,7 @@ def build_tensile_comparison_rows(
             rows.append(
                 _comparison_row(
                     report_label="Yield / proof stress",
-                    report_value=_fmt_mpa(parsed["yield_mpa"]),
+                    report_value=report_stress("yield_mpa"),
                     model_key="flow_C_mpa",
                     fitted=fitted,
                     current=cur,
@@ -588,7 +932,7 @@ def build_tensile_comparison_rows(
                 _comparison_row(
                     report_label="Ultimate tensile strength",
                     report_value=(
-                        _fmt_mpa(parsed["base_uts_mpa"]) if "base_uts_mpa" in parsed else "—"
+                        report_stress("base_uts_mpa") if "base_uts_mpa" in parsed else "—"
                     ),
                     model_key="base_uts_mpa",
                     fitted=fitted,
@@ -615,7 +959,7 @@ def build_tensile_comparison_rows(
         rows.append(
             TensileComparisonRow(
                 report_label="Elongation",
-                report_value=_fmt_pct(parsed["elongation_pct"]),
+                report_value=_fmt_report_elongation(parsed, units),
                 model_label="—",
                 fitted_value="—",
                 current_value="—",
@@ -631,7 +975,7 @@ def build_tensile_comparison_rows(
                 rows.append(
                     TensileComparisonRow(
                         report_label=rlabel,
-                        report_value=_fmt_mpa(parsed[rk]),
+                        report_value=report_stress(rk),
                         model_label="—",
                         fitted_value="—",
                         current_value="—",
@@ -695,15 +1039,16 @@ def import_tensile_test_file(
             source_excerpt=excerpt,
         )
 
-    parsed = parse_tensile_text(text)
+    parsed = parse_tensile_report(text)
+    parsed_values = parsed.values
     nitinol_cycle: Optional[NitinolCycleAssessment] = None
     warning = ""
     if model == "nitinol_superelastic":
-        nitinol_cycle = assess_nitinol_cycle(text, parsed)
+        nitinol_cycle = assess_nitinol_cycle(text, parsed_values)
         warning = nitinol_cycle.warning
 
     updates = build_property_updates(
-        parsed,
+        parsed_values,
         model=model,
         eps0=eps0,
         hardening_n=hardening_n,
@@ -730,22 +1075,27 @@ def import_tensile_test_file(
             source_excerpt=excerpt,
         )
 
-    labels = _format_import_labels(parsed, updates, model=model)
+    labels = _format_import_labels(parsed_values, updates, model=model)
     comparison = build_tensile_comparison_rows(
-        parsed,
+        parsed_values,
         updates,
         model=model,
         nitinol_cycle=nitinol_cycle,
+        value_units=parsed.value_units,
     )
     return TensileImportResult(
         ok=True,
         message="Imported from tensile report:\n" + "\n".join(f"• {x}" for x in labels),
         updates=updates,
-        fields_found=list(parsed.keys()),
+        fields_found=list(parsed_values.keys()),
         source_excerpt=excerpt,
         warning=warning,
         source_path=str(Path(path).resolve()),
-        parsed=dict(parsed),
+        parsed=dict(parsed_values),
         comparison_rows=comparison,
         nitinol_cycle=nitinol_cycle,
+        stress_unit=parsed.stress_unit,
+        modulus_unit=parsed.modulus_unit,
+        strain_unit=parsed.strain_unit,
+        value_units=dict(parsed.value_units),
     )

@@ -149,6 +149,22 @@ class TensileFitReviewDialog(QDialog):
         intro.setWordWrap(True)
         root.addWidget(intro)
 
+        unit_parts: list[str] = []
+        if result.stress_unit:
+            unit_parts.append(f"stress axis: {result.stress_unit}")
+        if result.modulus_unit:
+            unit_parts.append(f"modulus: {result.modulus_unit}")
+        if result.strain_unit:
+            unit_parts.append(f"strain axis: {result.strain_unit}")
+        if unit_parts:
+            unit_lbl = QLabel(
+                "Detected diagram units — " + ", ".join(unit_parts) + ". "
+                "Values without their own suffix were converted using these axis scales."
+            )
+            unit_lbl.setWordWrap(True)
+            unit_lbl.setStyleSheet("color: #1e40af; font-size: 11px; padding: 4px;")
+            root.addWidget(unit_lbl)
+
         if result.warning:
             warn = QLabel(result.warning)
             warn.setWordWrap(True)
@@ -163,6 +179,7 @@ class TensileFitReviewDialog(QDialog):
             model=model,
             current=current_values,
             nitinol_cycle=result.nitinol_cycle,
+            value_units=result.value_units,
         )
 
         table = QTableWidget(len(rows), 6)
@@ -282,6 +299,8 @@ class MaterialPropertiesDialog(QDialog):
         import_btn = QPushButton("Import tensile test...")
         import_btn.setToolTip(
             "Read tensile data from a PDF or JPEG/PNG report.\n"
+            "Detects stress (Y-axis) and strain (X-axis) units from diagram labels "
+            "(e.g. ksi, MPa, %, strain) and converts values for the model.\n"
             "Nitinol: use a full superelastic loading–unloading loop with upper plateau "
             "(σ_ms, σ_mf) and lower plateau (σ_as, σ_af); monotonic reports trigger a warning.\n"
             "Images need Tesseract OCR (brew install tesseract; pip install pytesseract)."

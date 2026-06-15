@@ -5,6 +5,7 @@ from tubing_master.tensile_import import (
     build_property_updates,
     build_tensile_comparison_rows,
     import_tensile_test_file,
+    parse_tensile_report,
     parse_tensile_text,
 )
 
@@ -66,6 +67,76 @@ def test_nitinol_monotonic_warns_no_plateau_guess():
     assert nit.get("e_austenite_mpa") == 41000.0
     res = import_tensile_test_file("/no/such/tensile.pdf", model="nitinol_superelastic")
     assert not res.ok
+
+
+def test_parse_ksi_from_diagram_axis():
+    text = """
+    Stress-strain diagram
+    Y-axis (Stress, ksi) vs Strain
+    Young's modulus 28.0 GPa
+    0.2% yield strength 42
+    Ultimate tensile strength 95
+    """
+    report = parse_tensile_report(text)
+    parsed = report.values
+    assert report.stress_unit == "ksi"
+    assert abs(parsed["yield_mpa"] - 42 * 6.894757) < 0.5
+    assert abs(parsed["base_uts_mpa"] - 95 * 6.894757) < 0.5
+    assert parsed["E_mpa"] == 28000.0
+
+
+def test_parse_explicit_ksi_suffix():
+    text = "Yield strength 55 ksi\nTensile strength 80 ksi\nElastic modulus 200 GPa"
+    parsed = parse_tensile_text(text)
+    assert abs(parsed["yield_mpa"] - 55 * 6.894757) < 0.5
+    assert abs(parsed["base_uts_mpa"] - 80 * 6.894757) < 0.5
+
+
+def test_parse_psi_stress_unit_header():
+    text = """
+    All stresses in psi
+    Yield strength 58000
+    UTS 85000
+    """
+    report = parse_tensile_report(text)
+    assert report.stress_unit == "psi"
+    assert abs(report.values["yield_mpa"] - 58000 * 0.006894757) < 1.0
+
+
+def test_parse_combined_diagram_axes():
+    text = """
+    Stress-strain diagram
+    Stress (ksi) vs Strain (%)
+    Yield strength 42
+    Ultimate tensile strength 95
+    Elongation 38
+    """
+    report = parse_tensile_report(text)
+    assert report.stress_unit == "ksi"
+    assert report.strain_unit == "%"
+    assert abs(report.values["yield_mpa"] - 42 * 6.894757) < 0.5
+    assert report.values["elongation_pct"] == 38.0
+
+
+def test_parse_x_axis_strain_decimal():
+    text = """
+    X-axis (Strain, strain)
+    Y-axis (Stress, ksi)
+    transformation strain 0.055
+    """
+    report = parse_tensile_report(text)
+    assert report.strain_unit == "strain"
+    assert abs(report.values["transformation_strain"] - 0.055) < 1e-6
+
+
+def test_parse_x_axis_microstrain():
+    text = """
+    Horizontal axis: strain (με)
+    Total elongation 45000
+    """
+    report = parse_tensile_report(text)
+    assert report.strain_unit == "microstrain"
+    assert abs(report.values["elongation_pct"] - 4.5) < 0.01
 
 
 def test_import_missing_file():
