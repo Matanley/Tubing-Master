@@ -4,17 +4,24 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
+from pathlib import Path
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
+    QFileDialog,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
+    QMessageBox,
     QPushButton,
     QScrollArea,
+    QTableWidget,
+    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -25,6 +32,11 @@ from tubing_master.material_properties import (
     merged_property_dict,
     overrides_differ_from_preset,
     preset_editable_defaults,
+)
+from tubing_master.tensile_import import (
+    TensileImportResult,
+    build_tensile_comparison_rows,
+    import_tensile_test_file,
 )
 
 
@@ -113,6 +125,100 @@ def _fields_for_model(model: str) -> List[FieldSpec]:
     return fields
 
 
+class TensileFitReviewDialog(QDialog):
+    """Side-by-side review of report values vs fitted model properties."""
+
+    def __init__(
+        self,
+        parent: QWidget | None,
+        *,
+        result: TensileImportResult,
+        model: str,
+        current_values: Dict[str, float],
+    ) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Tensile test fit review")
+        self.setMinimumSize(780, 440)
+
+        root = QVBoxLayout(self)
+        src_name = Path(result.source_path).name if result.source_path else "report"
+        intro = QLabel(
+            f"Compare values from <b>{src_name}</b> with the fitted material model. "
+            "Apply only if they are close enough for your simulation."
+        )
+        intro.setWordWrap(True)
+        root.addWidget(intro)
+
+        if result.warning:
+            warn = QLabel(result.warning)
+            warn.setWordWrap(True)
+            warn.setStyleSheet(
+                "background: #fef3c7; color: #92400e; padding: 8px; border-radius: 4px;"
+            )
+            root.addWidget(warn)
+
+        rows = build_tensile_comparison_rows(
+            result.parsed,
+            result.updates,
+            model=model,
+            current=current_values,
+            nitinol_cycle=result.nitinol_cycle,
+        )
+
+        table = QTableWidget(len(rows), 6)
+        table.setHorizontalHeaderLabels(
+            [
+                "Report property",
+                "From report",
+                "Model property",
+                "Fitted value",
+                "Current value",
+                "Note",
+            ]
+        )
+        header = table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
+        table.verticalHeader().setVisible(False)
+        table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        table.setAlternatingRowColors(True)
+        table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
+
+        align_right = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        for row_idx, row in enumerate(rows):
+            cells = (
+                row.report_label,
+                row.report_value,
+                row.model_label,
+                row.fitted_value,
+                row.current_value,
+                row.note,
+            )
+            for col_idx, text in enumerate(cells):
+                item = QTableWidgetItem(text)
+                if col_idx in (1, 3, 4):
+                    item.setTextAlignment(align_right)
+                table.setItem(row_idx, col_idx, item)
+
+        root.addWidget(table, stretch=1)
+
+        if result.source_excerpt:
+            excerpt = QLabel(f"<i>Source excerpt:</i> {result.source_excerpt}")
+            excerpt.setWordWrap(True)
+            excerpt.setStyleSheet("color: #64748b; font-size: 10px;")
+            root.addWidget(excerpt)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Apply | QDialogButtonBox.StandardButton.Cancel
+        )
+        apply_btn = buttons.button(QDialogButtonBox.StandardButton.Apply)
+        if apply_btn is not None:
+            apply_btn.setText("Apply fitted values")
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        root.addWidget(buttons)
+
+
 class MaterialPropertiesDialog(QDialog):
     """Edit analytical material parameters for the current preset."""
 
@@ -173,8 +279,17 @@ class MaterialPropertiesDialog(QDialog):
         root.addWidget(scroll, stretch=1)
 
         btn_row = QHBoxLayout()
+        import_btn = QPushButton("Import tensile test...")
+        import_btn.setToolTip(
+            "Read tensile data from a PDF or JPEG/PNG report.\n"
+            "Nitinol: use a full superelastic loading–unloading loop with upper plateau "
+            "(σ_ms, σ_mf) and lower plateau (σ_as, σ_af); monotonic reports trigger a warning.\n"
+            "Images need Tesseract OCR (brew install tesseract; pip install pytesseract)."
+        )
+        import_btn.clicked.connect(self._import_tensile_test)
         reset_btn = QPushButton("Reset to preset defaults")
         reset_btn.clicked.connect(self._reset_to_preset)
+        btn_row.addWidget(import_btn)
         btn_row.addWidget(reset_btn)
         btn_row.addStretch(1)
         root.addLayout(btn_row)
@@ -209,6 +324,58 @@ class MaterialPropertiesDialog(QDialog):
             spin.blockSignals(True)
             spin.setValue(_get_nested(defaults, key))
             spin.blockSignals(False)
+        self._refresh_description()
+
+    def _apply_property_updates(self, updates: Dict[str, Any]) -> int:
+        """Apply parsed tensile values to spin boxes; returns count of fields updated."""
+        n = 0
+        for key, spin in self._spinners.items():
+            if "." in key:
+                head, tail = key.split(".", 1)
+                nested = updates.get(head)
+                if not isinstance(nested, dict) or tail not in nested:
+                    continue
+                val = float(nested[tail])
+            elif key in updates:
+                val = float(updates[key])
+            else:
+                continue
+            lo, hi = float(spin.minimum()), float(spin.maximum())
+            spin.blockSignals(True)
+            spin.setValue(max(lo, min(hi, val)))
+            spin.blockSignals(False)
+            n += 1
+        return n
+
+    def _import_tensile_test(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import tensile test report",
+            str(Path.home()),
+            "Tensile reports (*.pdf *.PDF *.jpg *.jpeg *.png *.tif *.tiff *.bmp);;All files (*)",
+        )
+        if not path:
+            return
+        props = self._collect_properties()
+        result = import_tensile_test_file(
+            path,
+            model=self._model,
+            eps0=float(props.get("eps0", 0.005)),
+            hardening_n=float(props.get("hardening_n", 0.35)),
+        )
+        if not result.ok:
+            QMessageBox.warning(self, "Import tensile test", result.message)
+            return
+        current_values = {key: spin.value() for key, spin in self._spinners.items()}
+        review = TensileFitReviewDialog(
+            self,
+            result=result,
+            model=self._model,
+            current_values=current_values,
+        )
+        if review.exec() != QDialog.DialogCode.Accepted:
+            return
+        self._apply_property_updates(result.updates)
         self._refresh_description()
 
     def _on_save(self) -> None:
