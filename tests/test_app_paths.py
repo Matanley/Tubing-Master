@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 
 import pytest
+import runpy
 
 from tubing_master.app_paths import (
     damask_templates_dir,
@@ -41,6 +42,22 @@ def test_frozen_subprocess_ignored_when_not_frozen(monkeypatch):
     monkeypatch.setattr("tubing_master.app_paths.is_frozen", lambda: False)
     monkeypatch.setattr(sys, "argv", ["main.py", "-c", "import sys; sys.exit(7)"])
     dispatch_frozen_subprocess_if_needed()
+
+
+def test_frozen_worker_pass_dispatch(monkeypatch):
+    monkeypatch.setattr("tubing_master.app_paths.is_frozen", lambda: True)
+    monkeypatch.setattr(sys, "argv", ["Tubing Master", "--worker-pass"])
+    called: list[str] = []
+
+    def fake_run_module(module: str, **_kw):
+        called.append(module)
+        raise SystemExit(0)
+
+    monkeypatch.setattr("runpy.run_module", fake_run_module)
+    with pytest.raises(SystemExit) as exc:
+        dispatch_frozen_subprocess_if_needed()
+    assert exc.value.code == 0
+    assert called == ["tubing_master.fea_tube_die"]
 
 
 def test_app_data_projects(monkeypatch, tmp_path):

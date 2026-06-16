@@ -54,6 +54,31 @@ def dispatch_frozen_subprocess_if_needed() -> None:
             raise SystemExit(1) from None
         raise SystemExit(0)
 
+    # Headless worker entry points (if the bundle is invoked without ``-m``).
+    if "--worker-pass" in argv or "--worker-schedule" in argv:
+        import runpy
+
+        sys.argv = ["tubing_master.fea_tube_die", *argv]
+        try:
+            runpy.run_module("tubing_master.fea_tube_die", run_name="__main__", alter_sys=True)
+        except SystemExit:
+            raise
+        except Exception:
+            raise SystemExit(1) from None
+        raise SystemExit(0)
+
+    if "--pass-json" in argv:
+        import runpy
+
+        sys.argv = ["tubing_master.damask_support", *argv]
+        try:
+            runpy.run_module("tubing_master.damask_support", run_name="__main__", alter_sys=True)
+        except SystemExit:
+            raise
+        except Exception:
+            raise SystemExit(1) from None
+        raise SystemExit(0)
+
 
 def use_app_data_dirs() -> bool:
     """

@@ -22,6 +22,7 @@ except Exception:
 
 def main() -> None:
     app = QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(True)
     app.setApplicationName("Tubing Master")
     app.setOrganizationName("Tubing Master")
     icon_path = app_icon_path()

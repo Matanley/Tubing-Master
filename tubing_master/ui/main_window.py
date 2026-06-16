@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
 from PySide6.QtCore import QEvent, QObject, Qt, QTimer
-from PySide6.QtGui import QBrush, QColor, QGuiApplication, QPalette, QShowEvent
+from PySide6.QtGui import QBrush, QCloseEvent, QColor, QGuiApplication, QPalette, QShowEvent
 from PySide6.QtWidgets import (
     QApplication,
     QAbstractItemView,
@@ -339,6 +339,16 @@ class TubingMaster(QMainWindow):
         # Prevent nested _refresh_schedule_visuals (Qt processEvents / mpl draw can re-enter).
         self._in_refresh_schedule_visuals: bool = False
         self._pending_refresh_schedule_visuals: bool = False
+        self._in_strip_calibration: bool = False
+        self._pending_strip_calib_height: int | None = None
+        self._strip_resize_timer = QTimer(self)
+        self._strip_resize_timer.setSingleShot(True)
+        self._strip_resize_timer.setInterval(40)
+        self._strip_resize_timer.timeout.connect(self._scale_pass_schedule_strip_with_tabs_height)
+        self._strip_calibrate_timer = QTimer(self)
+        self._strip_calibrate_timer.setSingleShot(True)
+        self._strip_calibrate_timer.setInterval(40)
+        self._strip_calibrate_timer.timeout.connect(self._apply_pending_strip_calibration)
         # Match default QLayout horizontal inset (Pass Schedule’s button row sits under left_pv with style margins).
         _app0 = QApplication.instance()
         _style0 = _app0.style() if _app0 is not None else None
@@ -917,8 +927,8 @@ class TubingMaster(QMainWindow):
         fea_outer_layout = QVBoxLayout(fea_outer)
         fea_outer_layout.setContentsMargins(0, 0, 0, 0)
         fea_outer_layout.setSpacing(6)
-        self.fenics_status = QLabel()
-        self._refresh_fenics_status()
+        self.fenics_status = QLabel("Checking dolfinx availability…")
+        QTimer.singleShot(0, self._refresh_fenics_status)
         fea_outer_layout.addWidget(self.fenics_status, 0)
 
         fea_intro = QLabel(
@@ -1436,15 +1446,29 @@ class TubingMaster(QMainWindow):
             if strip is not None and watched is strip:
                 h = int(strip.height())
                 if h >= 50:
-                    self._record_cross_section_strip_calibration(h)
+                    self._pending_strip_calib_height = h
+                    self._strip_calibrate_timer.start()
         return super().eventFilter(watched, event)
+
+    def _apply_pending_strip_calibration(self) -> None:
+        h = self._pending_strip_calib_height
+        if h is None or h < 50 or self._in_strip_calibration:
+            return
+        self._in_strip_calibration = True
+        try:
+            self._record_cross_section_strip_calibration(h)
+        finally:
+            self._in_strip_calibration = False
 
     def _record_cross_section_strip_calibration(self, tubing_strip_px: int) -> None:
         """Match Pass Schedule side-view canvas pixel height to Tubing Project (source of truth)."""
         h = int(tubing_strip_px)
         if h < 50:
             return
-        self._strip_plot_calib = (max(1, self.tabs.height()), h)
+        th = max(1, self.tabs.height())
+        if self._strip_plot_calib == (th, h):
+            return
+        self._strip_plot_calib = (th, h)
         self.pass_schedule_cross_section_strip.setFixedHeight(h)
         if getattr(self, "opt_preview_cross_section_strip", None) is not None:
             self.opt_preview_cross_section_strip.setFixedHeight(h)
@@ -1454,7 +1478,13 @@ class TubingMaster(QMainWindow):
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
-        self._scale_pass_schedule_strip_with_tabs_height()
+        self._strip_resize_timer.start()
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        event.accept()
+        app = QApplication.instance()
+        if app is not None:
+            app.quit()
 
     def _scale_pass_schedule_strip_with_tabs_height(self) -> None:
         """While Pass Schedule, Optimization, or FEA is visible, keep strip height in sync when the tab resizes."""
@@ -1478,6 +1508,8 @@ class TubingMaster(QMainWindow):
             return
         mh = strip.minimumSize().height()
         new_h = max(mh, int(round(strip0 * (th / th0))))
+        if strip.height() == new_h and self._strip_plot_calib == (th, new_h):
+            return
         strip.setFixedHeight(new_h)
         self._strip_plot_calib = (th, new_h)
         self._relayout_visible_figures()
@@ -4432,7 +4464,10 @@ class TubingMaster(QMainWindow):
             fw = app.focusWidget()
             if fw is not None:
                 fw.clearFocus()
-            app.processEvents()
+            # Avoid nested processEvents during schedule refresh — it can re-enter handlers
+            # and starve window-manager events (close / minimize on macOS).
+            if not self._in_refresh_schedule_visuals and not self._in_strip_calibration:
+                app.processEvents()
         for _sb in (self.in_od_mm, self.in_id_mm, self.out_od_mm, self.out_id_mm):
             self._sync_spinbox_value_from_line_edit(_sb)
 
