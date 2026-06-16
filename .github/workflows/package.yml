@@ -58,9 +58,18 @@ jobs:
         run: python packaging/generate_icons.py
       - name: PyInstaller build
         run: python -m PyInstaller packaging/tubing_master.spec --noconfirm --clean
-      - name: Upload Windows artifact
+      - name: Create Windows zip
+        shell: pwsh
+        run: ./packaging/create_windows_installer.ps1
+      - name: Upload Windows folder
         uses: actions/upload-artifact@v4
         with:
           name: Tubing-Master-Windows
           path: dist/Tubing Master
+          if-no-files-found: error
+      - name: Upload Windows zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tubing-Master-Windows-zip
+          path: dist/Tubing-Master-*-Windows-x64.zip
           if-no-files-found: error

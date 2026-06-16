@@ -16,6 +16,10 @@ if exist dist rmdir /s /q dist
 %PYTHON% -m PyInstaller packaging\tubing_master.spec --noconfirm --clean
 if errorlevel 1 exit /b 1
 
+powershell -NoProfile -ExecutionPolicy Bypass -File packaging\create_windows_installer.ps1
+if errorlevel 1 exit /b 1
+
 echo.
 echo Build finished: dist\Tubing Master\Tubing Master.exe
+echo Zip installer: dist\Tubing-Master-*-Windows-x64.zip
 endlocal

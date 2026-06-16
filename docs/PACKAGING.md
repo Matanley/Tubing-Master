@@ -69,11 +69,35 @@ To rebuild installers only (after `dist/Tubing Master.app` already exists):
 
 ### Windows
 
+**On a Windows PC** (PyInstaller cannot cross-compile from macOS/Linux):
+
 ```cmd
 packaging\build.bat
 ```
 
-Output: `dist\Tubing Master\Tubing Master.exe`
+Output:
+
+- `dist\Tubing Master\Tubing Master.exe` — run directly or copy the whole folder
+- `dist\Tubing-Master-<version>-Windows-x64.zip` — zip for distribution
+
+To rebuild the zip only (after the folder build exists):
+
+```powershell
+powershell -File packaging\create_windows_installer.ps1
+```
+
+**From macOS/Linux:** use GitHub Actions — push a version tag or run the **Package** workflow manually:
+
+1. Open [Actions → Package](https://github.com/Matanley/Tubing-Master/actions/workflows/package.yml)
+2. **Run workflow** → branch `main`
+3. When finished, download **Tubing-Master-Windows-zip** (or the folder artifact)
+
+Or tag a release locally:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
 
 ### Manual PyInstaller
 
