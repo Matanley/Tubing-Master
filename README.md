@@ -15,6 +15,8 @@ Desktop app for **tube drawing** pass scheduling, analytical stress and safety-f
 
 The packaged desktop build ships the **core** workflow only. FEA and DAMASK require separate installs (see [docs/PACKAGING.md](docs/PACKAGING.md)).
 
+**User guide:** [docs/USER_GUIDE.md](docs/USER_GUIDE.md) — workflow, tab-by-tab features, calculation logic, and development roadmap.
+
 ## Requirements
 
 - Python **3.10+**
@@ -64,6 +66,7 @@ macOS and Windows desktop bundles are built with PyInstaller. See **[docs/PACKAG
 |------|---------|
 | `tubing_master/` | Application package |
 | `tubing_master/ui/` | Qt main window and widgets |
+| `docs/` | User guide, packaging notes |
 | `packaging/` | PyInstaller spec, icons, build scripts |
 | `tests/` | Unit tests |
 | `Projects/` | Example / local project history (dev mode) |
