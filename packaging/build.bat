@@ -20,6 +20,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File packaging\create_windows_ins
 if errorlevel 1 exit /b 1
 
 echo.
-echo Build finished: dist\Tubing Master\Tubing Master.exe
-echo Zip installer: dist\Tubing-Master-*-Windows-x64.zip
+echo Build finished:
+echo   dist\Tubing Master\Tubing Master.exe
+echo   dist\Tubing-Master-*-Windows-x64.zip
+echo   dist\Tubing-Master-*-Windows-x64-Setup.exe  (if Inno Setup is installed)
 endlocal

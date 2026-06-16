@@ -52,13 +52,23 @@ pip install pytest
 pytest tests/
 ```
 
+## Downloads
+
+Pre-built installers are published on **[GitHub Releases](https://github.com/Matanley/Tubing-Master/releases)** when a version tag is pushed (`v*`).
+
+| Platform | Recommended file |
+|----------|------------------|
+| **macOS** | `Tubing-Master-*-macOS-*.dmg` (drag to Applications) |
+| **Windows** | `Tubing-Master-*-Windows-x64-Setup.exe` (install wizard) |
+| **Windows (portable)** | `Tubing-Master-*-Windows-x64.zip` (extract and run) |
+
 ## Build installers
 
 macOS and Windows desktop bundles are built with PyInstaller. See **[docs/PACKAGING.md](docs/PACKAGING.md)** for:
 
 - `./packaging/build.sh` (macOS → `.app`, `.dmg`, `.pkg`)
 - `packaging\build.bat` (Windows → folder + `.exe`)
-- CI artifacts on version tags (`v*`)
+- CI builds and GitHub Releases on version tags (`v*`)
 
 ## Project layout
 

@@ -77,10 +77,19 @@ packaging\build.bat
 
 Output:
 
-- `dist\Tubing Master\Tubing Master.exe` — run directly or copy the whole folder
+- `dist\Tubing Master\Tubing Master.exe` — portable (unzip or copy folder; no installer)
 - `dist\Tubing-Master-<version>-Windows-x64.zip` — zip for distribution
+- `dist\Tubing-Master-<version>-Windows-x64-Setup.exe` — **recommended for end users** (Inno Setup wizard: Next → Install → Start Menu shortcut)
 
-To rebuild the zip only (after the folder build exists):
+**End-user install (Setup.exe):**
+
+1. Download `Tubing-Master-*-Windows-x64-Setup.exe` from GitHub Actions artifacts or a release.
+2. Double-click and follow the wizard (installs to `%LOCALAPPDATA%\Programs\Tubing Master` or `Program Files` depending on permissions).
+3. Launch from the Start Menu. Project data is stored under `%LOCALAPPDATA%\Tubing Master\Projects`.
+
+**Portable use (zip):** extract anywhere and run `Tubing Master\Tubing Master.exe` — no uninstaller, same app data location.
+
+To rebuild packaging only (after the PyInstaller folder exists):
 
 ```powershell
 powershell -File packaging\create_windows_installer.ps1
@@ -90,7 +99,7 @@ powershell -File packaging\create_windows_installer.ps1
 
 1. Open [Actions → Package](https://github.com/Matanley/Tubing-Master/actions/workflows/package.yml)
 2. **Run workflow** → branch `main`
-3. When finished, download **Tubing-Master-Windows-zip** (or the folder artifact)
+3. When finished, download **Tubing-Master-Windows-Setup** (installer) or **Tubing-Master-Windows-zip** (portable)
 
 Or tag a release locally:
 

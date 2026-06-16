@@ -58,7 +58,9 @@ jobs:
         run: python packaging/generate_icons.py
       - name: PyInstaller build
         run: python -m PyInstaller packaging/tubing_master.spec --noconfirm --clean
-      - name: Create Windows zip
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+      - name: Create Windows zip and setup installer
         shell: pwsh
         run: ./packaging/create_windows_installer.ps1
       - name: Upload Windows folder
@@ -73,3 +75,33 @@ jobs:
           name: Tubing-Master-Windows-zip
           path: dist/Tubing-Master-*-Windows-x64.zip
           if-no-files-found: error
+      - name: Upload Windows setup
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tubing-Master-Windows-Setup
+          path: dist/Tubing-Master-*-Windows-x64-Setup.exe
+          if-no-files-found: error
+
+  release:
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist-artifacts
+      - name: Collect release files
+        run: |
+          mkdir -p release-files
+          find dist-artifacts -type f \( \
+            -name '*.dmg' -o -name '*.pkg' -o -name '*.zip' -o -name '*-Setup.exe' \
+          \) -exec cp {} release-files/ \;
+          ls -la release-files/
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: release-files/*
