@@ -3,11 +3,29 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Optional, Tuple
 
 from PySide6.QtCore import Qt, QRectF
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import QSizePolicy, QWidget
+
+from tubing_master.ui.diagram_palette import (
+    ANNOTATION,
+    ANNOTATION_MUTED,
+    BG,
+    CENTERLINE,
+    INCOMING_EDGE,
+    INCOMING_FILL,
+    MODIFIED_EDGE,
+    MODIFIED_FILL_DARK,
+    MODIFIED_FILL_LIGHT,
+    PASS_BLUE_DARK,
+    PASS_BLUE_LIGHT,
+    PASS_EDGE,
+    PLACEHOLDER,
+    PLOT_BG,
+    PLOT_BORDER,
+)
 
 
 def _lerp_rgb(c0: Tuple[int, int, int], c1: Tuple[int, int, int], t: float) -> QColor:
@@ -19,21 +37,18 @@ def _lerp_rgb(c0: Tuple[int, int, int], c1: Tuple[int, int, int], t: float) -> Q
     )
 
 
-def _blue_pass_color(pass_index: int, n_passes: int) -> QColor:
-    """Approximate matplotlib Blues colormap samples used by the legacy strip (0.42–0.88)."""
-    t0, t1 = 0.42, 0.88
+def _pass_blue_color(pass_index: int, n_passes: int) -> QColor:
+    """Darker Blues ramp from first pass to final pass."""
     if n_passes <= 1:
-        t = t0
-    else:
-        t = t0 + (t1 - t0) * (pass_index / (n_passes - 1))
-    # #deebf7 (light) → #6baed6 (mid blue)
-    return _lerp_rgb((222, 235, 247), (107, 174, 214), (t - t0) / (t1 - t0) if t1 > t0 else 0.5)
+        return QColor(*PASS_BLUE_LIGHT)
+    t = pass_index / (n_passes - 1)
+    return _lerp_rgb(PASS_BLUE_LIGHT, PASS_BLUE_DARK, t)
 
 
 def _modified_pass_colors(strength: float) -> Tuple[QColor, QColor, float]:
-    face = _lerp_rgb((255, 251, 235), (245, 158, 11), strength)
-    edge = QColor(154, 52, 18) if strength > 0.55 else QColor(217, 119, 6)
-    lw = 1.25 + 2.35 * strength
+    face = _lerp_rgb(MODIFIED_FILL_LIGHT, MODIFIED_FILL_DARK, strength)
+    edge = MODIFIED_EDGE if strength > 0.55 else QColor(148, 120, 72)
+    lw = 1.2 + 2.0 * strength
     return face, edge, lw
 
 
@@ -64,7 +79,7 @@ class CrossSectionStripModel:
 
 
 class CrossSectionStripWidget(QWidget):
-    """Side-view hollow tube strip drawn with QPainter (matches prior matplotlib semantics)."""
+    """Side-view hollow tube strip drawn with QPainter (classic engineering grey style)."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -83,11 +98,11 @@ class CrossSectionStripWidget(QWidget):
     def paintEvent(self, _event) -> None:  # noqa: N802
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        p.fillRect(self.rect(), QColor(250, 250, 250))
+        p.fillRect(self.rect(), BG)
 
         m = self._model
         if m.error_message:
-            p.setPen(QColor(100, 116, 139))
+            p.setPen(PLACEHOLDER)
             p.setFont(QFont(self.font().family(), 10))
             p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, m.error_message)
             return
@@ -96,10 +111,15 @@ class CrossSectionStripWidget(QWidget):
         if w < 20 or h < 20:
             return
 
-        margin_l, margin_r = 10, 10
-        margin_t, margin_b = 10, 30
+        margin_l, margin_r = 12, 12
+        margin_t, margin_b = 12, 32
         plot_w = max(1, w - margin_l - margin_r)
         plot_h = max(1, h - margin_t - margin_b)
+        plot_rect = QRectF(margin_l, margin_t, plot_w, plot_h)
+        p.setPen(QPen(PLOT_BORDER, 1.0))
+        p.setBrush(PLOT_BG)
+        p.drawRoundedRect(plot_rect, 4, 4)
+
         cx_base = margin_l
         cy = margin_t + plot_h / 2.0
 
@@ -113,7 +133,7 @@ class CrossSectionStripWidget(QWidget):
         if half_max <= 0 or not (half_max == half_max):
             half_max = 0.05
         pad_r = max(0.06 * half_max, 0.08)
-        y_scale = (plot_h / 2.0 - 4) / (half_max + pad_r)
+        y_scale = (plot_h / 2.0 - 8) / (half_max + pad_r)
 
         def x_center(pass_i: int) -> float:
             return cx_base + (pass_i + 0.5) * (plot_w / n)
@@ -125,10 +145,14 @@ class CrossSectionStripWidget(QWidget):
         for i in range(n):
             x1 = x_edge(i + 1)
             seg = m.segments[i]
-            sep_color = QColor(251, 146, 60) if seg.is_modified else QColor(203, 213, 225)
-            sep_w = 1.15 if seg.is_modified else 0.8
+            if seg.is_modified:
+                sep_color = QColor(180, 148, 96)
+                sep_w = 1.1
+            else:
+                sep_color = QColor(148, 178, 214)
+                sep_w = 0.75
             p.setPen(QPen(sep_color, sep_w))
-            p.drawLine(int(x1), margin_t, int(x1), margin_t + plot_h)
+            p.drawLine(int(x1), int(margin_t + 2), int(x1), int(margin_t + plot_h - 2))
 
         # Walls
         for i, seg in enumerate(m.segments):
@@ -140,23 +164,24 @@ class CrossSectionStripWidget(QWidget):
             if seg.is_modified:
                 face, edge, lw = _modified_pass_colors(seg.modification_strength)
             else:
-                face = _blue_pass_color(i, n)
-                edge = QColor(30, 58, 95)
-                lw = 1.0
+                face = _pass_blue_color(i, n)
+                edge = PASS_EDGE
+                lw = 1.1
             pen = QPen(edge, lw)
             p.setPen(pen)
             p.setBrush(face)
-            # Upper annulus (screen y grows down: smaller y = larger radius upward)
             p.drawRect(QRectF(x0, cy - ho * y_scale, x1 - x0, (ho - hi) * y_scale))
-            # Lower annulus
             p.drawRect(QRectF(x0, cy + hi * y_scale, x1 - x0, (ho - hi) * y_scale))
 
         # Centerline
-        p.setPen(QPen(QColor(100, 116, 139), 1.0, Qt.PenStyle.DashLine))
-        p.drawLine(margin_l, int(cy), margin_l + plot_w, int(cy))
+        cl_pen = QPen(CENTERLINE, 0.85)
+        cl_pen.setStyle(Qt.PenStyle.CustomDashLine)
+        cl_pen.setDashPattern([8.0, 3.0, 2.0, 3.0])
+        p.setPen(cl_pen)
+        p.drawLine(margin_l + 2, int(cy), margin_l + plot_w - 2, int(cy))
 
         # Pass numbers
-        p.setPen(QColor(15, 23, 42))
+        p.setPen(ANNOTATION)
         lbl_font = QFont(self.font().family(), 7)
         p.setFont(lbl_font)
         y_pass = margin_t + plot_h + 12
@@ -180,7 +205,7 @@ class CrossSectionStripWidget(QWidget):
             elif src == "analytical_fallback":
                 tag = "analytical*"
             else:
-                tag = ""  # built-in analytical: plain "Grain Size … µm" only
+                tag = ""
             text = (
                 f"Grain {seg.grain_um:.1f} µm ({tag})"
                 if tag
@@ -190,10 +215,10 @@ class CrossSectionStripWidget(QWidget):
             th = 16
             rx = x_center(i) - tw / 2
             ry = y_txt - th / 2
-            p.setPen(QPen(QColor(148, 163, 184), 0.45))
-            p.setBrush(QColor(255, 255, 255, 225))
+            p.setPen(QPen(PLOT_BORDER, 0.6))
+            p.setBrush(QColor(252, 252, 253, 235))
             p.drawRoundedRect(QRectF(rx, ry, tw, th), 3, 3)
-            p.setPen(QColor(15, 23, 42))
+            p.setPen(ANNOTATION)
             p.drawText(
                 QRectF(rx, ry, tw, th),
                 Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter,
@@ -207,7 +232,7 @@ class CrossSectionStripWidget(QWidget):
             if not seg.show_od_label:
                 continue
             y_label = cy - (seg.od_mm / 2.0) * y_scale - 14
-            color = QColor(146, 64, 14) if seg.is_modified else QColor(51, 65, 85)
+            color = MODIFIED_EDGE if seg.is_modified else QColor(30, 64, 110)
             p.setPen(color)
             p.drawText(
                 QRectF(x_edge(i), y_label, plot_w / n, 14),
@@ -227,19 +252,20 @@ class CrossSectionStripWidget(QWidget):
         ho = m.incoming_od_mm / 2.0
         hi = max(m.incoming_id_mm / 2.0, 1e-9)
         half_m = max(ho, 0.05)
-        y_scale = (plot_h / 2.0 - 4) / (half_m * 1.15)
-        x0, x1 = cx_base, cx_base + plot_w
-        face = QColor(143, 184, 216)
-        edge = QColor(44, 82, 130)
-        p.setPen(QPen(edge, 1.2))
-        p.setBrush(face)
+        y_scale = (plot_h / 2.0 - 8) / (half_m * 1.15)
+        x0, x1 = cx_base + 2, cx_base + plot_w - 2
+        p.setPen(QPen(INCOMING_EDGE, 1.15))
+        p.setBrush(INCOMING_FILL)
         if ho > hi:
             p.drawRect(QRectF(x0, cy - ho * y_scale, x1 - x0, (ho - hi) * y_scale))
             p.drawRect(QRectF(x0, cy + hi * y_scale, x1 - x0, (ho - hi) * y_scale))
-        p.setPen(QPen(QColor(148, 163, 184), 0.9, Qt.PenStyle.DashLine))
+        cl_pen = QPen(CENTERLINE, 0.85)
+        cl_pen.setStyle(Qt.PenStyle.CustomDashLine)
+        cl_pen.setDashPattern([8.0, 3.0, 2.0, 3.0])
+        p.setPen(cl_pen)
         p.drawLine(int(x0), int(cy), int(x1), int(cy))
         if m.show_target_hint:
-            p.setPen(QColor(100, 116, 139))
+            p.setPen(ANNOTATION_MUTED)
             hint_font = QFont(self.font().family(), 8)
             p.setFont(hint_font)
             hint = f"Target OD={m.target_od_mm:.3f} mm · ID={m.target_id_mm:.3f} mm"

@@ -15,6 +15,20 @@ from tubing_master.fea_pass_schematic import (
     build_fea_pass_schematic_layout,
     tube_wall_band_polygons,
 )
+from tubing_master.ui.diagram_palette import (
+    ANNOTATION,
+    ANNOTATION_MUTED,
+    BG,
+    BORE_EDGE,
+    BORE_FILL,
+    METAL_EDGE,
+    METAL_HATCH,
+    PLACEHOLDER,
+    PLOT_BG,
+    PLOT_BORDER,
+    TUBE_EDGE,
+    TUBE_FILL,
+)
 
 
 class FeaPassSchematicWidget(QWidget):
@@ -35,10 +49,10 @@ class FeaPassSchematicWidget(QWidget):
     def paintEvent(self, _event) -> None:  # noqa: N802
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        p.fillRect(self.rect(), QColor(255, 255, 255))
+        p.fillRect(self.rect(), BG)
 
         if self._spec.placeholder:
-            p.setPen(QColor(73, 80, 87))
+            p.setPen(PLACEHOLDER)
             p.setFont(QFont(self.font().family(), 10))
             p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, self._spec.placeholder)
             return
@@ -51,6 +65,10 @@ class FeaPassSchematicWidget(QWidget):
         margin_l, margin_r, margin_t, margin_b = 18, 18, 34, 42
         plot_w = max(1.0, w - margin_l - margin_r)
         plot_h = max(1.0, h - margin_t - margin_b)
+        plot_rect = QRectF(margin_l, margin_t + 18, plot_w, plot_h - 18)
+        p.setPen(QPen(PLOT_BORDER, 1.0))
+        p.setBrush(PLOT_BG)
+        p.drawRoundedRect(plot_rect, 4, 4)
         z_span = max(lay.z_plot_max - lay.z_plot_min, 1e-9)
         scale = min(plot_w / z_span, plot_h / (2.0 * lay.r_plot_max))
         cx = margin_l + (plot_w - z_span * scale) / 2.0
@@ -77,7 +95,7 @@ class FeaPassSchematicWidget(QWidget):
         tf = QFont(self.font().family(), 10)
         tf.setBold(True)
         p.setFont(tf)
-        p.setPen(QColor(33, 37, 41))
+        p.setPen(ANNOTATION)
         proc = lay.process_label or "Tube drawing"
         p.drawText(
             QRectF(ml, 6, w - ml - mr, 20),
@@ -98,13 +116,13 @@ class FeaPassSchematicWidget(QWidget):
         r_blk = max(lay.r_holder_outer * 0.92, max(g.ro) * 1.02, lay.od_in_mm / 2.0 * 1.15)
 
         block = closed_from_half([(z0, r_blk), (z1, r_blk)], [(z0, -r_blk), (z1, -r_blk)])
-        p.setPen(QPen(QColor(26, 26, 26), 1.8))
-        p.setBrush(QBrush(QColor(198, 202, 208), Qt.BrushStyle.BDiagPattern))
+        p.setPen(QPen(METAL_EDGE, 1.6))
+        p.setBrush(QBrush(METAL_HATCH, Qt.BrushStyle.BDiagPattern))
         p.drawPolygon(block)
 
         bore = QPolygonF([map_pt(z, r) for z, r in symmetric_outline(list(g.zu), list(g.ru))])
-        p.setPen(QPen(QColor(26, 26, 26), 1.2))
-        p.setBrush(QColor(255, 255, 255))
+        p.setPen(QPen(BORE_EDGE, 1.1))
+        p.setBrush(BORE_FILL)
         p.drawPolygon(bore)
 
     def _draw_mandrel(
@@ -119,8 +137,8 @@ class FeaPassSchematicWidget(QWidget):
         r_id_o = lay.id_out_mm / 2.0
         z0 = lay.z_stock_start
         z1 = g.z3
-        outline = QPen(QColor(26, 26, 26), 1.6)
-        fill = QColor(255, 255, 255)
+        outline = QPen(METAL_EDGE, 1.4)
+        fill = BORE_FILL
 
         def bar(z_a: float, z_b: float, r_outer: float, r_inner: float) -> QPolygonF:
             return QPolygonF(
@@ -162,8 +180,8 @@ class FeaPassSchematicWidget(QWidget):
         upper_band, lower_band = tube_wall_band_polygons(
             lay, z0=lay.z_stock_start, z1=z_end, n_seg=36
         )
-        p.setPen(QPen(QColor(26, 26, 26), 1.4))
-        p.setBrush(QColor(26, 26, 26))
+        p.setPen(QPen(TUBE_EDGE, 1.3))
+        p.setBrush(TUBE_FILL)
         p.drawPolygon(QPolygonF([map_pt(z, r) for z, r in upper_band]))
         p.drawPolygon(QPolygonF([map_pt(z, r) for z, r in lower_band]))
 
@@ -221,8 +239,8 @@ class FeaPassSchematicWidget(QWidget):
         y_arr = map_pt(0.0, -lay.r_plot_max * 0.92).y()
         p0 = QPointF(map_pt(z_a0, 0.0).x(), y_arr)
         p1 = QPointF(map_pt(z_a1, 0.0).x(), y_arr)
-        p.setPen(QPen(QColor(33, 37, 41), 1.5))
-        p.setBrush(QColor(33, 37, 41))
+        p.setPen(QPen(ANNOTATION, 1.2))
+        p.setBrush(ANNOTATION)
         p.drawLine(p0, p1)
         self._arrow_head(p, p0, p1, 10.0)
         p.setFont(QFont(self.font().family(), 9))
@@ -233,7 +251,7 @@ class FeaPassSchematicWidget(QWidget):
         )
 
         p.setFont(QFont(self.font().family(), 8))
-        p.setPen(QColor(90, 96, 105))
+        p.setPen(ANNOTATION_MUTED)
         p.drawText(
             QRectF(8, self.height() - 22, self.width() - 16, 16),
             Qt.AlignmentFlag.AlignRight,
