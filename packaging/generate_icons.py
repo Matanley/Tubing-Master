@@ -14,7 +14,8 @@ SRC = ICONS / "icon_1024.png"
 MAC_SQUARE = ICONS / "icon_mac_square.png"
 
 # How much of the canvas the cropped artwork fills (after trimming flat blue).
-_ARTWORK_SCALE = 0.96
+# ~0.84 matches macOS Dock safe area; 0.96 looked oversized next to system icons.
+_ARTWORK_SCALE = 0.84
 # Superellipse exponent — ~5 matches macOS Big Sur+ squircle closely.
 _SQUIRCLE_N = 5.0
 
