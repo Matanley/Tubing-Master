@@ -90,7 +90,10 @@ The preview table shows an optimized schedule you can apply to the Pass Schedule
 Requires **FEniCSx / dolfinx** (conda-forge; not bundled in the desktop installer).
 
 - **Single pass — tube / die model** — axisymmetric elastic FEA for one drawing step; schematic view of tooling.
-- **FEA schedule optimization** — slower Optuna search scored by von Mises stress from FEA across the full pass chain.
+- **FEA schedule optimization** — three modes on the FEA tab:
+  - Optuna with FEA every trial (slow)
+  - Analytical Optuna + FEA re-rank of top 5
+  - **GRSM + FEA** — Latin-hypercube DOE and response-surface search with selective dolfinx evaluations (recommended when FEA is expensive)
 
 Use this for verification or research setups. The packaged app ships without dolfinx; run from a conda environment for FEA work.
 
@@ -177,10 +180,16 @@ Today DAMASK coupling exists for development environments; the roadmap is to mak
 | Phase | Direction |
 |-------|-----------|
 | **Near term** | Robust axisymmetric tube/die model per pass; clear comparison of FEA von Mises vs analytical pulling stress |
-| **Mid term** | Full **multi-pass FEA simulation** (chained geometry, contact, friction models) from the Pass Schedule tab |
-| **Long term** | **FEA-driven optimization** — Optuna (or similar) minimizing peak stress, die load, or springback using FEA objectives; hybrid rank-reconcile with analytical pre-screening |
+| **Mid term** | **GRSM + dolfinx** — Latin-hypercube DOE, inverse-distance response surface, selective FEA evaluations (FEA tab: **GRSM + FEA**). Full multi-pass FEA (chained geometry, contact, friction) |
+| **Long term** | Optional **AFDEX** (APA) as external forming FEM; HyperStudy-style GRSM with commercial solvers; Optuna/FEA hybrid remains available |
 
-The FEA tab and `fea_optimize` module are early steps; the packaged installer will remain analytical-only until FEA dependencies can be distributed or run via a connected compute service.
+The FEA tab already offers:
+
+1. **Run FEA optimization** — Optuna with FEA every trial (slow)
+2. **Analytical search + FEA top 5** — hybrid pre-screen
+3. **GRSM + FEA** — response-surface search with fewer FEA runs
+
+The packaged installer will remain analytical-only until FEA dependencies can be distributed or run via a connected compute service.
 
 ### Other directions (under consideration)
 

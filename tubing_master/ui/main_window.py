@@ -99,6 +99,10 @@ from tubing_master.fea_optimize import (
     fea_verify_top_analytical_schedules,
     optimize_multi_pass_schedule_fea,
 )
+from tubing_master.grsm_optimize import (
+    grsm_config_from_fea_budget,
+    optimize_multi_pass_schedule_grsm,
+)
 from tubing_master.fea_tube_die import run_tube_die_pass_subprocess
 from tubing_master.optimization import (
     OPT_SCHEDULE_MAX_PER_PASS_R,
@@ -1052,6 +1056,15 @@ class TubingMaster(QMainWindow):
         )
         self.fea_opt_hybrid_btn.clicked.connect(self._run_fea_optimization_hybrid)
         fea_opt_row.addWidget(self.fea_opt_hybrid_btn)
+        fea_opt_row.addSpacing(12)
+        self.fea_opt_grsm_btn = QPushButton("GRSM + FEA")
+        self.fea_opt_grsm_btn.setToolTip(
+            "Global response-surface search (GRSM-style): Latin-hypercube DOE, "
+            "inverse-distance surrogate, then selective dolfinx FEA evaluations. "
+            "Fewer FEA runs than Optuna-on-every-trial. Trials spinbox ≈ FEA budget."
+        )
+        self.fea_opt_grsm_btn.clicked.connect(self._run_fea_optimization_grsm)
+        fea_opt_row.addWidget(self.fea_opt_grsm_btn)
         fea_opt_row.addStretch(1)
         fea_opt_layout.addLayout(fea_opt_row)
         self.fea_apply_to_schedule_btn = QPushButton("Apply FEA-best schedule to Pass schedule…")
@@ -6361,6 +6374,65 @@ class TubingMaster(QMainWindow):
         finally:
             self._fea_set_busy(False)
 
+    def _run_fea_optimization_grsm(self) -> None:
+        from tubing_master.dolfinx_sim import dolfinx_available
+
+        if not dolfinx_available():
+            QMessageBox.warning(self, "FEA", "dolfinx is required for GRSM + FEA.")
+            return
+        g0, _g1, r_tot, n_pass, mat, err = self._fea_optimization_geometry_bundle()
+        if err:
+            QMessageBox.warning(self, "FEA", err)
+            return
+        cfg = self._fea_optimization_config(n_pass, r_tot)
+        cfg.n_trials = int(self.fea_opt_trials.value())
+        gcfg = grsm_config_from_fea_budget(cfg.n_trials, seed=42)
+        self.fea_out.clear()
+        self._fea_append(
+            f"GRSM + FEA ({n_pass} passes): "
+            f"{gcfg.initial_samples} initial + "
+            f"{gcfg.n_iterations}×{gcfg.points_per_iteration} iterative FEA evals "
+            f"(budget ≈ {cfg.n_trials})."
+        )
+        self._fea_set_busy(True)
+        try:
+            QApplication.processEvents()
+            result = optimize_multi_pass_schedule_grsm(g0, mat, cfg, gcfg)
+            n_ok = sum(1 for h in result.history if h.get("ok"))
+            self._fea_append(
+                f"  Completed {result.n_fea_evaluations} FEA evaluations "
+                f"({n_ok} feasible). {result.message}"
+            )
+            for h in result.history:
+                if not h.get("ok"):
+                    continue
+                phase = h.get("phase", "")
+                score = float(h.get("fea_score", 0.0))
+                if phase == "initial":
+                    self._fea_append(
+                        f"  DOE #{h.get('index', 0)}: max σ_vm={score / 1e6:.1f} MPa"
+                    )
+                else:
+                    self._fea_append(
+                        f"  iter {h.get('iteration', 0)}.{h.get('index', 0)}: "
+                        f"max σ_vm={score / 1e6:.1f} MPa"
+                    )
+            # Lightweight stand-in study object for the shared present helper.
+            class _GrsmStudy:
+                best_value = float(result.best_fea_score)
+                best_trial = type("T", (), {"number": -1})()
+
+            self._fea_present_optimization_result(
+                list(result.best_passes),
+                _GrsmStudy(),
+                prefix="GRSM+FEA",
+                fea_note=result.message,
+            )
+        except Exception as exc:
+            self._fea_append(f"GRSM + FEA failed: {exc}")
+        finally:
+            self._fea_set_busy(False)
+
     def _fea_optimization_geometry_bundle(self):
         err = self._geometry_error_message()
         if err:
@@ -6441,6 +6513,7 @@ class TubingMaster(QMainWindow):
             self.fea_analyze_schedule_btn,
             self.fea_opt_pure_btn,
             self.fea_opt_hybrid_btn,
+            self.fea_opt_grsm_btn,
             self.fea_load_opt_btn,
             self.fea_pass_select,
             self.fea_od_in,
