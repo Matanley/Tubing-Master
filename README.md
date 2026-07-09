@@ -11,6 +11,7 @@ Desktop app for **tube drawing** pass scheduling, analytical stress and safety-f
 - **Die inventory** — semi-die records with schematic views
 - **Optional simulation backends** (dev / conda environments):
   - **dolfinx** — axisymmetric tube/die FEA
+  - **GRSM + FEA** — Latin-hypercube DOE and response-surface search with selective dolfinx evaluations (fewer FEA runs than Optuna-on-every-trial)
   - **DAMASK** — crystal-plasticity grain evolution via external `DAMASK_grid`
 
 The packaged desktop build ships the **core** workflow only. FEA and DAMASK require separate installs (see [docs/PACKAGING.md](docs/PACKAGING.md)).
@@ -25,7 +26,7 @@ The packaged desktop build ships the **core** workflow only. FEA and DAMASK requ
 Optional:
 
 - [requirements-damask.txt](requirements-damask.txt) — DAMASK-related Python deps
-- dolfinx / FEniCSx — conda-forge only; not in the default pip set
+- dolfinx / FEniCSx — conda-forge only; not in the default pip set (needed for the FEA tab and **GRSM + FEA**)
 
 ## Run from source
 
@@ -44,6 +45,23 @@ conda activate tubing-master
 pip install -r requirements.txt
 python main.py
 ```
+
+### FEA / GRSM (optional)
+
+Install dolfinx in the same environment, then use the **FEA** tab:
+
+```bash
+conda install -c conda-forge dolfinx
+python main.py
+```
+
+1. Set geometry and material on **Tubing Project**.
+2. Open **FEA** → **FEA schedule optimization**.
+3. Set **Trials** (FEA budget), then choose:
+   - **GRSM + FEA** — recommended when FEA is expensive
+   - **Analytical search + FEA top 5** — fast Optuna, then FEA on the best schedules
+   - **Run FEA optimization** — Optuna with FEA every trial (slow)
+4. **Apply FEA-best schedule to Pass schedule…** to copy the result into the pass table.
 
 ## Tests
 
@@ -76,6 +94,7 @@ macOS and Windows desktop bundles are built with PyInstaller. See **[docs/PACKAG
 |------|---------|
 | `tubing_master/` | Application package |
 | `tubing_master/ui/` | Qt main window and widgets |
+| `tubing_master/grsm_optimize.py` | GRSM-style FEA schedule search |
 | `docs/` | User guide, packaging notes |
 | `packaging/` | PyInstaller spec, icons, build scripts |
 | `tests/` | Unit tests |
