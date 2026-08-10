@@ -25,9 +25,39 @@ def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any
     return out
 
 
+def is_builtin_material(label: str) -> bool:
+    """True when ``label`` matches a shipped preset (after alias normalization)."""
+    name = normalize_material_label(label)
+    return bool(name) and name in MATERIALS
+
+
+def blank_material_template() -> Dict[str, Any]:
+    """Typical isotropic-hardening defaults for a new user-defined material."""
+    return {
+        "model": "isotropic_hardening",
+        "E_mpa": 210000.0,
+        "yield_mpa": 250.0,
+        "density_kg_m3": 7850.0,
+        "limit_pct": 35.0,
+        "flow_C_mpa": 1200.0,
+        "hardening_n": 0.35,
+        "eps0": 0.005,
+        "base_uts_mpa": 600.0,
+        "uts_hardening_coef": 800.0,
+        "grain_refinement_m": 0.45,
+        "min_grain_um": 0.5,
+        "initial_grain_um": 15.0,
+        "friction_coeff": 0.05,
+        "custom": True,
+    }
+
+
 def preset_editable_defaults(label: str) -> Dict[str, Any]:
     """Flat editable property dict for a built-in preset (for dialog + JSON)."""
     name = normalize_material_label(label)
+    if not is_builtin_material(name):
+        # User-defined materials use the blank isotropic template as the base.
+        return blank_material_template()
     preset = dict(MATERIALS.get(name) or {})
     model = str(preset.get("model", "isotropic_hardening"))
     out: Dict[str, Any] = {

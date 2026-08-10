@@ -43,7 +43,7 @@ def dolfinx_available() -> bool:
             [sys.executable, "-c", "import dolfinx"],
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=20,
         )
         _dolfinx_import_ok = r.returncode == 0
     except (OSError, subprocess.SubprocessError, subprocess.TimeoutExpired):

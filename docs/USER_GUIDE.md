@@ -50,12 +50,12 @@ Start here for every job.
 |------|---------|
 | **Incoming / Target tube** | Starting and final outer and inner diameters (mm). |
 | **Drawing method** | Sink, rod, plug, etc. — affects mandrel/plug rows in the BOM. |
-| **Material** | Presets (316L, copper, Nitinol, …) or custom properties via **Edit Material Property**. |
+| **Material** | Presets (**316 Stainless Steel**, **Copper Alloy**, **Nitinol**); choose **Add New Material…** at the bottom of the list for a custom alloy; **Edit Material Property** for per-project tweaks. |
 | **Cross-section strip** | Visual OD/ID progression pass by pass. |
 | **Simulation backend** | **Analytical** (default) or **DAMASK** when installed (see below). |
 | **Project history** | Save, open, and duplicate past projects. |
 
-**Edit Material Property** opens a dialog for flow stress, UTS hardening, grain refinement, friction, density, and Nitinol transformation plateaus. You can **Import tensile test…** from a PDF or image: the app parses the report, detects diagram units (e.g. ksi vs MPa, % vs strain), fits a model, and shows a review table before applying values.
+**Add New Material…** (bottom of the Material dropdown) opens a blank form with typical isotropic (steel-like) defaults; after you save, the new alloy is added to the dropdown and selected. **Edit Material Property** opens a dialog for flow stress, UTS hardening, grain refinement, friction, density, and Nitinol transformation plateaus. You can **Import tensile test…** from a PDF or image: the app parses the report, detects diagram units (e.g. ksi vs MPa, % vs strain), fits a model, and shows a review table before applying values.
 
 ### Pass Schedule
 

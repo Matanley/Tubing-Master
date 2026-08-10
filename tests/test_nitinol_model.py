@@ -25,6 +25,17 @@ def test_nitinol_renamed_and_alias():
     assert normalize_material_label("NiTi") == "Nitinol"
 
 
+def test_preset_labels_and_legacy_aliases():
+    assert set(MATERIALS.keys()) == {
+        "316 Stainless Steel",
+        "Copper Alloy",
+        "Nitinol",
+    }
+    assert "Mild steel (illustrative)" not in MATERIALS
+    assert normalize_material_label("316L stainless steel") == "316 Stainless Steel"
+    assert normalize_material_label("T2 copper") == "Copper Alloy"
+
+
 def test_nitinol_piecewise_loading_stress():
     p = NitinolParams()
     s_el = nitinol_loading_stress_mpa(0.001, p)
@@ -71,7 +82,7 @@ def test_nitinol_lower_sf_than_steel_same_pass():
     g0 = tube_from_od_id_m(0.012, 0.010)
     passes = [PassInput(semi_die_angle_deg=12.0, friction_mu=0.06, area_reduction_fraction=0.12)]
     nit = material_from_preset_label("Nitinol")
-    steel = material_from_preset_label("316L stainless steel")
+    steel = material_from_preset_label("316 Stainless Steel")
     _, n_res, _, _ = simulate_schedule(g0, nit, passes)
     _, s_res, _, _ = simulate_schedule(g0, steel, passes)
     assert n_res[0].safety_factor_vs_uts != s_res[0].safety_factor_vs_uts
@@ -81,7 +92,7 @@ def test_nitinol_lower_sf_than_steel_same_pass():
 
 def test_nitinol_weaker_grain_refinement():
     eng = TubingMasterEngine.from_material(material_from_preset_label("Nitinol"))
-    steel = TubingMasterEngine.from_material(material_from_preset_label("316L stainless steel"))
+    steel = TubingMasterEngine.from_material(material_from_preset_label("316 Stainless Steel"))
     eps = 0.20
     g1 = eng.calculate_grain_size(eng.material.effective_grain_refinement_strain(eps), d0=20.0)
     g2 = steel.calculate_grain_size(eps, d0=15.0)

@@ -4,12 +4,22 @@ from __future__ import annotations
 
 import re
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
 from PySide6.QtCore import QEvent, QObject, Qt, QTimer
-from PySide6.QtGui import QBrush, QCloseEvent, QColor, QGuiApplication, QPalette, QShowEvent
+from PySide6.QtGui import (
+    QAction,
+    QBrush,
+    QCloseEvent,
+    QColor,
+    QGuiApplication,
+    QKeySequence,
+    QPalette,
+    QShowEvent,
+)
 from PySide6.QtWidgets import (
     QApplication,
     QAbstractItemView,
@@ -81,7 +91,10 @@ from tubing_master.materials import (
     suggested_interpass_hold_time_min,
     suggested_interpass_ht_temperature_c,
 )
-from tubing_master.ui.material_properties_dialog import run_material_properties_dialog
+from tubing_master.ui.material_properties_dialog import (
+    run_add_new_material_dialog,
+    run_material_properties_dialog,
+)
 from tubing_master.quotation import (
     PROCESS_CHARGE_LABELS,
     process_charge_description_default,
@@ -203,6 +216,7 @@ _TAB_INDEX_DIE_INVENTORY = 5
 _TAB_INDEX_QUOTATION = 6
 # Nearest history rows shown in Judgment + copied to ./suggested_projects/ for Fetch History.
 _CLOSEST_HISTORY_REFERENCE_COUNT = 3
+_ADD_NEW_MATERIAL_ITEM = "Add New Material..."
 
 # Pass Schedule row shading (die availability vs inventory).
 _DIE_INV_COL_COUNT = 10
@@ -345,6 +359,7 @@ class TubingMaster(QMainWindow):
         self._pending_refresh_schedule_visuals: bool = False
         self._in_strip_calibration: bool = False
         self._pending_strip_calib_height: int | None = None
+        self._in_material_btn_width_sync: bool = False
         self._strip_resize_timer = QTimer(self)
         self._strip_resize_timer.setSingleShot(True)
         self._strip_resize_timer.setInterval(40)
@@ -353,10 +368,17 @@ class TubingMaster(QMainWindow):
         self._strip_calibrate_timer.setSingleShot(True)
         self._strip_calibrate_timer.setInterval(40)
         self._strip_calibrate_timer.timeout.connect(self._apply_pending_strip_calibration)
+        self._material_btn_width_timer = QTimer(self)
+        self._material_btn_width_timer.setSingleShot(True)
+        self._material_btn_width_timer.setInterval(50)
+        self._material_btn_width_timer.timeout.connect(self._sync_material_property_btn_width)
+        self._bg_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="tm-probe")
         # Match default QLayout horizontal inset (Pass Schedule’s button row sits under left_pv with style margins).
         _app0 = QApplication.instance()
         _style0 = _app0.style() if _app0 is not None else None
         self._tab_page_h_inset = _style_layout_horizontal_margin_px(_style0)
+
+        self._install_app_menu()
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -434,8 +456,10 @@ class TubingMaster(QMainWindow):
         material_form = QFormLayout(material_box)
         self.material_combo = QComboBox()
         self.material_combo.addItems(list(MATERIAL_PRESET_LABELS))
+        self.material_combo.addItem(_ADD_NEW_MATERIAL_ITEM)
         self.material_combo.setToolTip(
-            "Material constitutive model for analytical stress, safety factor, and grain estimates."
+            "Material constitutive model for analytical stress, safety factor, and grain estimates. "
+            "Choose Add New Material… at the bottom to create a custom alloy."
         )
         material_form.addRow("Material", self.material_combo)
         self.material_properties_btn = QPushButton("Edit Material Property...")
@@ -445,7 +469,7 @@ class TubingMaster(QMainWindow):
         self.material_properties_btn.clicked.connect(self._open_material_properties_dialog)
         material_form.addRow("", self.material_properties_btn)
         self.material_combo.installEventFilter(self)
-        material_box.installEventFilter(self)
+        self._material_combo_prev_index = 0
 
         for box in (in_box, out_box, method_box, material_box):
             box.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -538,7 +562,7 @@ class TubingMaster(QMainWindow):
         self.out_id_mm.valueChanged.connect(self._on_target_id_for_tracking)
         self._style_id_spin_tracks_od(self.in_id_mm, True)
         self._style_id_spin_tracks_od(self.out_id_mm, True)
-        self.material_combo.currentIndexChanged.connect(self._on_material_or_drawing_changed)
+        self.material_combo.currentIndexChanged.connect(self._on_material_combo_changed)
         self.drawing_method_combo.currentIndexChanged.connect(self._on_material_or_drawing_changed)
         self._update_material_combo_tooltip()
         self._update_geometry_hints()
@@ -932,7 +956,7 @@ class TubingMaster(QMainWindow):
         fea_outer_layout.setContentsMargins(0, 0, 0, 0)
         fea_outer_layout.setSpacing(6)
         self.fenics_status = QLabel("Checking dolfinx availability…")
-        QTimer.singleShot(0, self._refresh_fenics_status)
+        QTimer.singleShot(0, self._probe_fenics_status_async)
         fea_outer_layout.addWidget(self.fenics_status, 0)
 
         fea_intro = QLabel(
@@ -1449,12 +1473,25 @@ class TubingMaster(QMainWindow):
         QTimer.singleShot(0, self._update_quote_stock_price_display)
         QTimer.singleShot(0, self._sync_material_property_btn_width)
 
+    def _install_app_menu(self) -> None:
+        """Native Quit (⌘Q) so the app can exit even if traffic lights mis-hit on macOS 26."""
+        quit_act = QAction("Quit Tubing Master", self)
+        quit_act.setMenuRole(QAction.MenuRole.QuitRole)
+        quit_act.setShortcut(QKeySequence.StandardKey.Quit)
+        quit_act.triggered.connect(self._quit_application)
+        file_menu = self.menuBar().addMenu("&File")
+        file_menu.addAction(quit_act)
+
+    def _quit_application(self) -> None:
+        app = QApplication.instance()
+        if app is not None:
+            app.quit()
+
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         if event.type() == QEvent.Type.Resize:
             combo = getattr(self, "material_combo", None)
-            material_box = getattr(self, "material_box", None)
-            if combo is not None and watched in (combo, material_box):
-                self._sync_material_property_btn_width()
+            if combo is not None and watched is combo:
+                self._material_btn_width_timer.start()
             strip = getattr(self, "tubing_cross_section_strip", None)
             if strip is not None and watched is strip:
                 h = int(strip.height())
@@ -1494,10 +1531,23 @@ class TubingMaster(QMainWindow):
         self._strip_resize_timer.start()
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        for timer in (
+            getattr(self, "_strip_resize_timer", None),
+            getattr(self, "_strip_calibrate_timer", None),
+            getattr(self, "_material_btn_width_timer", None),
+        ):
+            if timer is not None:
+                timer.stop()
+        executor = getattr(self, "_bg_executor", None)
+        if executor is not None:
+            self._bg_executor = None
+            try:
+                executor.shutdown(wait=False, cancel_futures=True)
+            except TypeError:
+                executor.shutdown(wait=False)
         event.accept()
-        app = QApplication.instance()
-        if app is not None:
-            app.quit()
+        # Defer quit so Cocoa can finish the close animation (macOS 26 chrome quirks).
+        QTimer.singleShot(0, self._quit_application)
 
     def _scale_pass_schedule_strip_with_tabs_height(self) -> None:
         """While Pass Schedule, Optimization, or FEA is visible, keep strip height in sync when the tab resizes."""
@@ -1521,10 +1571,11 @@ class TubingMaster(QMainWindow):
             return
         mh = strip.minimumSize().height()
         new_h = max(mh, int(round(strip0 * (th / th0))))
-        if strip.height() == new_h and self._strip_plot_calib == (th, new_h):
+        if strip.height() == new_h:
             return
         strip.setFixedHeight(new_h)
-        self._strip_plot_calib = (th, new_h)
+        # Keep calib as (tabs_h_at_source, tubing_strip_h) — do not overwrite the
+        # tubing reference with the scaled pass-schedule height (avoids resize fights).
         self._relayout_visible_figures()
 
     def showEvent(self, event: QShowEvent) -> None:
@@ -2939,8 +2990,10 @@ class TubingMaster(QMainWindow):
                 out.append(row)
         return out
 
-    def _refresh_fenics_status(self) -> None:
-        if dolfinx_available():
+    def _set_fenics_status_text(self, available: bool) -> None:
+        if not getattr(self, "fenics_status", None):
+            return
+        if available:
             self.fenics_status.setText(
                 "dolfinx: available — axisymmetric tube/die FEA and FEA optimization can run."
             )
@@ -2948,6 +3001,32 @@ class TubingMaster(QMainWindow):
             self.fenics_status.setText(
                 "dolfinx: not importable — install conda-forge dolfinx (requirements-fenics.txt) for this tab."
             )
+
+    def _probe_fenics_status_async(self) -> None:
+        """Probe dolfinx off the GUI thread so a slow MPI import cannot freeze traffic lights."""
+        try:
+            fut = self._bg_executor.submit(dolfinx_available)
+        except RuntimeError:
+            self._set_fenics_status_text(False)
+            return
+
+        def _poll() -> None:
+            if getattr(self, "_bg_executor", None) is None:
+                return
+            if not fut.done():
+                QTimer.singleShot(50, _poll)
+                return
+            try:
+                ok = bool(fut.result())
+            except Exception:
+                ok = False
+            self._set_fenics_status_text(ok)
+
+        QTimer.singleShot(0, _poll)
+
+    def _refresh_fenics_status(self) -> None:
+        # Cached after first probe; safe to call from FEA handlers.
+        self._set_fenics_status_text(dolfinx_available())
 
     def _refresh_damask_status(self) -> None:
         if not getattr(self, "damask_status_label", None):
@@ -3505,12 +3584,19 @@ class TubingMaster(QMainWindow):
             self.in_id_mm.setValue(float(proj.get("in_id_mm", self.in_id_mm.value())))
             self.out_od_mm.setValue(float(proj.get("out_od_mm", self.out_od_mm.value())))
             self.out_id_mm.setValue(float(proj.get("out_id_mm", self.out_id_mm.value())))
-            self._set_combo_to_text(
-                self.material_combo, normalize_material_label(str(proj.get("material", "")))
-            )
             raw_overrides = proj.get("material_property_overrides")
-            self._material_property_overrides = (
-                dict(raw_overrides) if isinstance(raw_overrides, dict) else {}
+            remapped_overrides: Dict[str, Dict[str, Any]] = {}
+            if isinstance(raw_overrides, dict):
+                for raw_key, raw_val in raw_overrides.items():
+                    if not isinstance(raw_val, dict):
+                        continue
+                    nk = normalize_material_label(str(raw_key))
+                    if nk:
+                        remapped_overrides[nk] = dict(raw_val)
+            self._material_property_overrides = remapped_overrides
+            self._ensure_custom_materials_in_combo()
+            self._set_material_combo_to_text(
+                normalize_material_label(str(proj.get("material", "")))
             )
             self._set_combo_to_text(self.drawing_method_combo, str(proj.get("drawing_method", "")))
             if sch:
@@ -3685,8 +3771,94 @@ class TubingMaster(QMainWindow):
         label = self.material_combo.currentText()
         return metal_material_from_property_dict(label, self._current_material_override())
 
+    def _material_combo_names(self) -> List[str]:
+        names: List[str] = []
+        for i in range(self.material_combo.count()):
+            text = self.material_combo.itemText(i).strip()
+            if text and text != _ADD_NEW_MATERIAL_ITEM:
+                names.append(text)
+        names.extend(str(k) for k in self._material_property_overrides.keys())
+        return names
+
+    def _add_new_material_item_index(self) -> int:
+        idx = self.material_combo.findText(_ADD_NEW_MATERIAL_ITEM, Qt.MatchFlag.MatchExactly)
+        if idx < 0:
+            self.material_combo.addItem(_ADD_NEW_MATERIAL_ITEM)
+            return self.material_combo.count() - 1
+        return idx
+
+    def _insert_material_in_combo(self, name: str) -> int:
+        """Insert a material name above the Add New Material… action; return its index."""
+        key = (name or "").strip()
+        if not key or key == _ADD_NEW_MATERIAL_ITEM:
+            return max(0, self._material_combo_prev_index)
+        existing = self.material_combo.findText(key, Qt.MatchFlag.MatchExactly)
+        if existing >= 0:
+            return existing
+        insert_at = self._add_new_material_item_index()
+        self.material_combo.insertItem(insert_at, key)
+        return insert_at
+
+    def _set_material_combo_to_text(self, text: str) -> None:
+        t = (text or "").strip()
+        if not t or t == _ADD_NEW_MATERIAL_ITEM:
+            return
+        idx = self._insert_material_in_combo(t)
+        self.material_combo.setCurrentIndex(idx)
+        self._material_combo_prev_index = idx
+
+    def _ensure_custom_materials_in_combo(self) -> None:
+        """Add user-defined material names from project overrides into the combo."""
+        from tubing_master.material_properties import is_builtin_material
+
+        self._add_new_material_item_index()
+        for key in self._material_property_overrides:
+            name = normalize_material_label(str(key))
+            if not name or is_builtin_material(name) or name == _ADD_NEW_MATERIAL_ITEM:
+                continue
+            self._insert_material_in_combo(name)
+
+    def _on_material_combo_changed(self, index: int) -> None:
+        if index < 0:
+            return
+        if self.material_combo.itemText(index) == _ADD_NEW_MATERIAL_ITEM:
+            prev = int(getattr(self, "_material_combo_prev_index", 0) or 0)
+            if prev < 0 or prev >= self.material_combo.count():
+                prev = 0
+            if self.material_combo.itemText(prev) == _ADD_NEW_MATERIAL_ITEM:
+                prev = 0
+            self.material_combo.blockSignals(True)
+            self.material_combo.setCurrentIndex(prev)
+            self.material_combo.blockSignals(False)
+            self._open_add_new_material_dialog()
+            return
+        self._material_combo_prev_index = index
+        self._on_material_or_drawing_changed()
+
+    def _open_add_new_material_dialog(self) -> None:
+        name, props, accepted = run_add_new_material_dialog(
+            self, existing_names=self._material_combo_names()
+        )
+        if not accepted or not name or not props:
+            return
+        key = normalize_material_label(name)
+        self._material_property_overrides[key] = dict(props)
+        idx = self._insert_material_in_combo(key)
+        self.material_combo.blockSignals(True)
+        self.material_combo.setCurrentIndex(idx)
+        self.material_combo.blockSignals(False)
+        self._material_combo_prev_index = idx
+        self._update_material_combo_tooltip()
+        self._sync_quote_density_from_material()
+        self._retarget_pass_schedule_ht_suggestions_from_material_change()
+        self._refresh_schedule_visuals()
+        self._update_geometry_hints()
+        self._update_project_history_panel()
+
     def _open_material_properties_dialog(self) -> None:
         label = self.material_combo.currentText()
+        if not label or label == _ADD_NEW_MATERIAL_ITEM:
+            return
         key = normalize_material_label(label)
         override, cleared, accepted = run_material_properties_dialog(
             self,
@@ -3745,6 +3917,8 @@ class TubingMaster(QMainWindow):
 
     def _sync_material_property_btn_width(self) -> None:
         """Match Edit Material Property button width to the material combo (combo unchanged)."""
+        if self._in_material_btn_width_sync:
+            return
         combo = getattr(self, "material_combo", None)
         btn = getattr(self, "material_properties_btn", None)
         if combo is None or btn is None:
@@ -3752,8 +3926,13 @@ class TubingMaster(QMainWindow):
         w = int(combo.width())
         if w <= 0:
             w = int(combo.sizeHint().width())
-        if w > 0:
+        if w <= 0 or btn.width() == w:
+            return
+        self._in_material_btn_width_sync = True
+        try:
             btn.setFixedWidth(w)
+        finally:
+            self._in_material_btn_width_sync = False
 
     def _on_material_or_drawing_changed(self) -> None:
         self._commit_tubing_project_diameter_edits()
@@ -4472,15 +4651,12 @@ class TubingMaster(QMainWindow):
 
     def _commit_tubing_project_diameter_edits(self) -> None:
         """Ensure OD/ID spinbox .value() matches visible editor text before any geometry read."""
+        # Do not call processEvents here — nested event loops starve close/minimize on macOS.
         app = QApplication.instance()
         if app is not None:
             fw = app.focusWidget()
-            if fw is not None:
+            if fw is not None and self.isAncestorOf(fw):
                 fw.clearFocus()
-            # Avoid nested processEvents during schedule refresh — it can re-enter handlers
-            # and starve window-manager events (close / minimize on macOS).
-            if not self._in_refresh_schedule_visuals and not self._in_strip_calibration:
-                app.processEvents()
         for _sb in (self.in_od_mm, self.in_id_mm, self.out_od_mm, self.out_id_mm):
             self._sync_spinbox_value_from_line_edit(_sb)
 

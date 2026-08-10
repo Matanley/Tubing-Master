@@ -1,5 +1,6 @@
 numpy>=2.4.0
-PySide6>=6.11.0
+# 6.11.x has macOS 26 window chrome regressions (close/minimize/resize).
+PySide6>=6.10.2,<6.11
 optuna>=4.9.0
 openpyxl>=3.1.5
 pypdf>=6.13.0

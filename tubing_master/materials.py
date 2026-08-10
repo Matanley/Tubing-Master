@@ -19,7 +19,7 @@ from tubing_master.nitinol_model import (
 MaterialModelKind = Literal["isotropic_hardening", "nitinol_superelastic"]
 
 MATERIALS: Dict[str, Dict[str, Any]] = {
-    "316L stainless steel": {
+    "316 Stainless Steel": {
         "limit_pct": 35.0,
         "color": "cyan",
         "model": "isotropic_hardening",
@@ -38,7 +38,7 @@ MATERIALS: Dict[str, Dict[str, Any]] = {
         "suggested_ht_temp_c": 1050,
         "suggested_ht_time_min": 45,
     },
-    "T2 copper": {
+    "Copper Alloy": {
         "limit_pct": 50.0,
         "color": "orange",
         "model": "isotropic_hardening",
@@ -91,31 +91,16 @@ MATERIALS: Dict[str, Dict[str, Any]] = {
         "suggested_ht_temp_c": 450,
         "suggested_ht_time_min": 30,
     },
-    "Mild steel (illustrative)": {
-        "limit_pct": 40.0,
-        "color": "steelblue",
-        "model": "isotropic_hardening",
-        "E_mpa": 210000.0,
-        "yield_mpa": 250.0,
-        "density_kg_m3": 7850.0,
-        "flow_C_mpa": 1200.0,
-        "hardening_n": 0.35,
-        "eps0": 0.005,
-        "base_uts_mpa": 600.0,
-        "uts_hardening_coef": 800.0,
-        "grain_refinement_m": 0.45,
-        "min_grain_um": 0.5,
-        "friction_coeff": 0.05,
-        "note": "Illustrative mechanical properties for scheduling.",
-        "suggested_ht_temp_c": 680,
-        "suggested_ht_time_min": 45,
-    },
 }
 
 # Legacy project / history labels → current preset name.
 MATERIAL_ALIASES: Dict[str, str] = {
     "NiTi": "Nitinol",
     "niti": "Nitinol",
+    "316L stainless steel": "316 Stainless Steel",
+    "316l stainless steel": "316 Stainless Steel",
+    "T2 copper": "Copper Alloy",
+    "t2 copper": "Copper Alloy",
 }
 
 DRAWING_METHODS: List[str] = [

@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QLineEdit,
     QMessageBox,
     QPushButton,
     QScrollArea,
@@ -28,11 +29,14 @@ from PySide6.QtWidgets import (
 
 from tubing_master.material_properties import (
     _diff_from_preset,
+    blank_material_template,
     internal_model_description,
+    is_builtin_material,
     merged_property_dict,
     overrides_differ_from_preset,
     preset_editable_defaults,
 )
+from tubing_master.materials import MATERIAL_PRESET_LABELS
 from tubing_master.tensile_import import (
     TensileImportResult,
     build_tensile_comparison_rows,
@@ -399,6 +403,13 @@ class MaterialPropertiesDialog(QDialog):
 
     def _on_save(self) -> None:
         props = self._collect_properties()
+        # User-defined materials: persist the full property set (no built-in base to diff against).
+        if not is_builtin_material(self._material_label):
+            props["custom"] = True
+            self._saved_override = props
+            self._cleared = False
+            self.accept()
+            return
         if overrides_differ_from_preset(self._material_label, props):
             self._saved_override = _diff_from_preset(self._material_label, props)
             self._cleared = False
@@ -409,6 +420,131 @@ class MaterialPropertiesDialog(QDialog):
 
     def result_override(self) -> Tuple[Optional[Dict[str, Any]], bool]:
         return self._saved_override, self._cleared
+
+
+class AddNewMaterialDialog(QDialog):
+    """Blank form with typical isotropic properties for a new user-defined material."""
+
+    def __init__(
+        self,
+        parent: QWidget | None,
+        *,
+        existing_names: List[str] | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self._existing = {
+            str(n).strip().lower()
+            for n in (existing_names or [])
+            if str(n).strip()
+        }
+        self._existing.update(str(n).strip().lower() for n in MATERIAL_PRESET_LABELS)
+        self._template = blank_material_template()
+        self._model = "isotropic_hardening"
+        self._spinners: Dict[str, QDoubleSpinBox] = {}
+        self._saved_name: str = ""
+        self._saved_props: Optional[Dict[str, Any]] = None
+
+        self.setWindowTitle("Add New Material")
+        self.setMinimumWidth(520)
+        self.setMinimumHeight(520)
+
+        root = QVBoxLayout(self)
+
+        intro = QLabel(
+            "Create a custom material for this project. Fields start with typical "
+            "isotropic power-law values (steel-like); edit them to match your alloy."
+        )
+        intro.setWordWrap(True)
+        intro.setStyleSheet("color: #334155; font-size: 11px; padding: 4px;")
+        root.addWidget(intro)
+
+        name_form = QFormLayout()
+        self._name_edit = QLineEdit()
+        self._name_edit.setPlaceholderText("e.g. Inconel 718, Ti-6Al-4V, Custom alloy A")
+        self._name_edit.setClearButtonEnabled(True)
+        name_form.addRow("Material name", self._name_edit)
+        root.addLayout(name_form)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        inner = QWidget()
+        inner_layout = QVBoxLayout(inner)
+        inner_layout.setContentsMargins(4, 4, 4, 4)
+
+        model_lbl = QLabel("Internal model: isotropic_hardening")
+        model_lbl.setStyleSheet("font-weight: 600;")
+        inner_layout.addWidget(model_lbl)
+
+        groups: Dict[str, QFormLayout] = {}
+        for key, label, lo, hi, dec, suffix, group in _fields_for_model(self._model):
+            if group not in groups:
+                box = QGroupBox(group)
+                groups[group] = QFormLayout(box)
+                inner_layout.addWidget(box)
+            spin = _spin(
+                minimum=lo,
+                maximum=hi,
+                decimals=dec,
+                value=_get_nested(self._template, key),
+                suffix=suffix,
+            )
+            groups[group].addRow(label, spin)
+            self._spinners[key] = spin
+
+        inner_layout.addStretch(1)
+        scroll.setWidget(inner)
+        root.addWidget(scroll, stretch=1)
+
+        btn_row = QHBoxLayout()
+        reset_btn = QPushButton("Reset to typical defaults")
+        reset_btn.clicked.connect(self._reset_to_template)
+        btn_row.addWidget(reset_btn)
+        btn_row.addStretch(1)
+        root.addLayout(btn_row)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Save).setText("Add material")
+        buttons.accepted.connect(self._on_save)
+        buttons.rejected.connect(self.reject)
+        root.addWidget(buttons)
+
+    def _reset_to_template(self) -> None:
+        for key, spin in self._spinners.items():
+            spin.blockSignals(True)
+            spin.setValue(_get_nested(self._template, key))
+            spin.blockSignals(False)
+
+    def _collect_properties(self) -> Dict[str, Any]:
+        props = dict(self._template)
+        for key, spin in self._spinners.items():
+            _set_nested(props, key, spin.value())
+        props["model"] = self._model
+        props["custom"] = True
+        return props
+
+    def _on_save(self) -> None:
+        name = self._name_edit.text().strip()
+        if not name:
+            QMessageBox.warning(self, "Add New Material", "Enter a material name.")
+            self._name_edit.setFocus()
+            return
+        if name.lower() in self._existing:
+            QMessageBox.warning(
+                self,
+                "Add New Material",
+                f'A material named "{name}" already exists. Choose a different name.',
+            )
+            self._name_edit.setFocus()
+            return
+        self._saved_name = name
+        self._saved_props = self._collect_properties()
+        self.accept()
+
+    def result(self) -> Tuple[str, Dict[str, Any]]:
+        return self._saved_name, dict(self._saved_props or {})
 
 
 def run_material_properties_dialog(
@@ -425,3 +561,18 @@ def run_material_properties_dialog(
         return current_override, False, False
     override, cleared = dlg.result_override()
     return override, cleared, True
+
+
+def run_add_new_material_dialog(
+    parent: QWidget | None,
+    *,
+    existing_names: List[str] | None = None,
+) -> Tuple[Optional[str], Optional[Dict[str, Any]], bool]:
+    """Returns ``(name, full_properties, accepted)``."""
+    dlg = AddNewMaterialDialog(parent, existing_names=existing_names)
+    if dlg.exec() != QDialog.DialogCode.Accepted:
+        return None, None, False
+    name, props = dlg.result()
+    if not name or not props:
+        return None, None, False
+    return name, props, True
