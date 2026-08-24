@@ -61,16 +61,18 @@ Start here for every job.
 
 The pass table is the manufacturing plan.
 
-Each pass row includes:
+Each **drawing** pass row includes:
 
 - Output OD / ID after the pass
 - Area reduction fraction
 - Semi-die angle (α)
 - Lubricant preset
 - Mandrel / plug (when applicable)
-- Interpass heat treatment (temperature, time, gas, equipment, notes)
+- Interpass heat treatment fields (temperature, time, gas, equipment, notes)
 
-You can edit cells directly, fit equal area-reduction steps to hit a target OD or ID, and snap semi-die angles to values in die inventory. Changes propagate to BOM, quotation, and plots when you refresh the schedule.
+**Right-click** a row to **Edit process…**, **Insert process above/below**, or **Remove process**. Process types: **Reducer**, **Drawing**, **Annealing**, **Straightening**, **Sandblasting**. The first row stays labeled **Incoming**; its process type can be set (default **Reducer**) with equipment and parameters. Equipment can be typed freely; if the name is new you are asked to save it to the **plant equipment list** (plants keep a limited set). Auxiliary steps keep tube size from the previous drawing exit (Incoming mirrors Tubing Project OD/ID) and are skipped by analytical/FEA drawing math.
+
+You can also edit cells directly, fit equal area-reduction steps to hit a target OD or ID, and snap semi-die angles to values in die inventory. Changes propagate to BOM, quotation, and plots when you refresh the schedule.
 
 ### Optimization
 

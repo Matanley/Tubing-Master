@@ -39,6 +39,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QPushButton,
     QRadioButton,
@@ -156,6 +157,12 @@ from tubing_master.project_history import (
     upsert_project,
     workdir_projects_dir,
 )
+from tubing_master.ui.add_process_dialog import (
+    is_auxiliary_process_kind,
+    normalize_process_kind,
+    process_kind_display_label,
+    run_add_process_dialog,
+)
 from tubing_master.ui.cross_section_strip import (
     CrossSectionPassSegment,
     CrossSectionStripModel,
@@ -256,6 +263,8 @@ def _merge_legacy_interleaved_pass_schedule_passes(passes: list[Dict[str, Any]])
     """
     Older projects stored alternating draw / inter-pass rows. Merge each inter-pass row's HT fields
     into the preceding draw-pass row when r>0 / r<=0 pattern matches, then drop inter-pass rows.
+
+    Rows with an explicit auxiliary ``kind`` (annealing / straightening / sandblasting) are kept.
     """
     if not passes:
         return []
@@ -269,14 +278,23 @@ def _merge_legacy_interleaved_pass_schedule_passes(passes: list[Dict[str, Any]])
             r = float(p.get("r", 0) or 0)
         except (TypeError, ValueError):
             r = 0.0
+        kind = normalize_process_kind(p.get("kind"), area_reduction=r)
+        if is_auxiliary_process_kind(kind):
+            p["kind"] = kind
+            p["r"] = 0.0
+            out.append(p)
+            i += 1
+            continue
         if r > 0:
+            p["kind"] = "drawing"
             if i + 1 < n and isinstance(passes[i + 1], dict):
                 q = passes[i + 1]
                 try:
                     r2 = float(q.get("r", 0) or 0)
                 except (TypeError, ValueError):
                     r2 = 0.0
-                if r2 <= 0:
+                q_kind = normalize_process_kind(q.get("kind"), area_reduction=r2)
+                if r2 <= 0 and not is_auxiliary_process_kind(q_kind):
                     for key in ("temperature", "time", "protective_gas", "equipment", "notes"):
                         pt = str(p.get(key, "") or "").strip()
                         qt = str(q.get(key, "") or "").strip()
@@ -763,6 +781,8 @@ class TubingMaster(QMainWindow):
         self.table.verticalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignCenter)
         self.table.setMinimumWidth(280)
         self.table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self._on_pass_schedule_context_menu)
         self.table.blockSignals(True)
         try:
             self._rebuild_pass_table_for_draw_count(_MIN_PASS_TABLE_ROWS)
@@ -1718,15 +1738,82 @@ class TubingMaster(QMainWindow):
         cb.setCurrentIndex(1)
 
     def _pass_schedule_row_is_draw_pass(self, row: int) -> bool:
-        """True when area reduction (col 2) is positive — heat-treatment controls live on that pass row."""
+        """True when this schedule row is a drawing pass (positive area reduction)."""
+        kind = self._pass_schedule_row_kind(row)
+        if kind and is_auxiliary_process_kind(kind):
+            return False
         return self._pass_row_area_reduction_fraction(row) > 0.0
 
+    def _pass_schedule_row_kind(self, row: int) -> str:
+        h = self.table.verticalHeaderItem(row)
+        if h is not None:
+            raw = h.data(Qt.ItemDataRole.UserRole)
+            if raw:
+                return normalize_process_kind(raw, area_reduction=self._pass_row_area_reduction_fraction(row))
+        if self._is_pass_schedule_incoming_row(row):
+            return "reducer"
+        r = self._pass_row_area_reduction_fraction(row)
+        return normalize_process_kind(None, area_reduction=r)
+
+    def _set_pass_schedule_row_kind(self, row: int, kind: str) -> None:
+        k = normalize_process_kind(kind, area_reduction=self._pass_row_area_reduction_fraction(row))
+        h = self.table.verticalHeaderItem(row)
+        if h is None:
+            h = QTableWidgetItem("")
+            self.table.setVerticalHeaderItem(row, h)
+        h.setData(Qt.ItemDataRole.UserRole, k)
+
+    def _clear_pass_schedule_mechanics_widgets(self, row: int) -> None:
+        self._clear_area_reduction_cell(row)
+        self._clear_semi_die_angle_cell(row)
+        self._clear_lubricant_cell(row)
+        self._clear_mandrel_plug_cell(row)
+
+    def _set_pass_schedule_mechanics_placeholders(self, row: int) -> None:
+        self._clear_pass_schedule_mechanics_widgets(row)
+        for col in (_COL_AREA_REDUCTION, _COL_SEMI_DIE_ANGLE, _COL_LUBRICANT):
+            self.table.setItem(row, col, self._centered_table_item("—", read_only=True))
+        self._set_mandrel_plug_placeholder(row)
+
+    def _configure_pass_schedule_row(self, row: int, p: Dict[str, Any] | None = None) -> None:
+        """Fill one schedule row from a pass/process dict (drawing or auxiliary)."""
+        src = dict(p or {})
+        try:
+            r_raw = float(src.get("r", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            r_raw = 0.0
+        kind = normalize_process_kind(src.get("kind"), area_reduction=r_raw)
+        self._set_pass_schedule_row_kind(row, kind)
+
+        self.table.setItem(row, _COL_OUTPUT_OD, self._centered_table_item("—", read_only=True))
+        self.table.setItem(row, _COL_OUTPUT_ID, self._centered_table_item("—", read_only=True))
+
+        if kind == "drawing":
+            r = r_raw if r_raw > 0 else 0.12
+            a = float(src.get("alpha_deg", 12.0) or 12.0)
+            mu = float(src.get("mu", 0.06) or 0.06)
+            self._set_pass_row_area_reduction_spin_programmatic(row, r)
+            self._set_pass_row_semi_die_angle_spin_programmatic(row, a)
+            self._set_pass_row_lubricant_combo_programmatic(row, mu)
+            self._set_mandrel_plug_placeholder(row)
+        else:
+            self._set_pass_schedule_mechanics_placeholders(row)
+
+        self._set_pass_schedule_process_cells(row, {**src, "kind": kind})
+
     def _set_pass_schedule_process_cells(self, row: int, p: Dict[str, Any] | None = None) -> None:
-        """Draw-pass rows (area reduction > 0): temp/time spinboxes + gas combo on the same row; equipment & notes."""
+        """Temperature/time/gas for drawing & annealing; equipment & notes for all process kinds."""
         src = p or {}
         self._clear_pass_schedule_ht_widgets(row)
+        kind = normalize_process_kind(
+            src.get("kind") or self._pass_schedule_row_kind(row),
+            area_reduction=self._pass_row_area_reduction_fraction(row),
+        )
+        show_ht = kind == "annealing" or (
+            kind == "drawing" and self._pass_row_area_reduction_fraction(row) > 0.0
+        )
 
-        if not self._pass_schedule_row_is_draw_pass(row):
+        if not show_ht:
             for col in (_COL_PS_TEMPERATURE, _COL_PS_TIME, _COL_PS_PROTECTIVE_GAS):
                 self.table.setItem(row, col, self._schedule_process_item(""))
             self.table.setItem(
@@ -1751,7 +1838,7 @@ class TubingMaster(QMainWindow):
         sb_t.setKeyboardTracking(False)
         sb_t.setValue(temp_val)
         sb_t.setToolTip(
-            f"Illustrative inter-pass heat-treat temperature (°C); default {def_temp} °C for {mat}. "
+            f"Illustrative heat-treat temperature (°C); default {def_temp} °C for {mat}. "
             "Adjust with the spin buttons — verify against your qualified procedures."
         )
         self._style_pass_schedule_spinbox(sb_t)
@@ -1772,7 +1859,7 @@ class TubingMaster(QMainWindow):
         for lab in _PROTECTIVE_GAS_OPTIONS:
             cb.addItem(lab)
         self._set_protective_gas_combo_from_saved(cb, gas_raw)
-        cb.setToolTip("Protective atmosphere for heat treatment on this pass (preset list).")
+        cb.setToolTip("Protective atmosphere for heat treatment on this step (preset list).")
 
         sb_t.valueChanged.connect(lambda _v, r=row: self._on_ht_temperature_value_changed(r))
         sb_tm.valueChanged.connect(lambda _v, r=row: self._on_ht_time_value_changed(r))
@@ -1841,6 +1928,8 @@ class TubingMaster(QMainWindow):
             return
         self.table.blockSignals(True)
         try:
+            if self._pass_row_area_reduction_fraction(row) > 0:
+                self._set_pass_schedule_row_kind(row, "drawing")
             self._set_pass_schedule_process_cells(row, self._pass_schedule_row_to_dict(row))
         finally:
             self.table.blockSignals(False)
@@ -2047,25 +2136,27 @@ class TubingMaster(QMainWindow):
         """First row shows Tubing Project incoming OD/ID in Output columns (not a drawing pass)."""
         return row == _PASS_SCHEDULE_INCOMING_ROW and self.table.rowCount() > row
 
-    def _setup_pass_schedule_incoming_row(self) -> None:
-        """Placeholders for mechanics columns; Output OD/ID from Tubing Project incoming tube."""
+    def _setup_pass_schedule_incoming_row(self, p: Dict[str, Any] | None = None) -> None:
+        """Row 0 = Incoming: OD/ID from Tubing Project; editable process (default Reducer)."""
         row = _PASS_SCHEDULE_INCOMING_ROW
-        self._clear_area_reduction_cell(row)
-        self._clear_semi_die_angle_cell(row)
-        self._clear_lubricant_cell(row)
-        self._clear_mandrel_plug_cell(row)
-        for col in (_COL_AREA_REDUCTION, _COL_SEMI_DIE_ANGLE, _COL_LUBRICANT):
-            self.table.setItem(row, col, self._centered_table_item("—", read_only=True))
-        self._clear_pass_schedule_ht_widgets(row)
-        self.table.setItem(row, _COL_PS_EQUIPMENT, self._schedule_process_item(""))
-        self.table.setItem(row, _COL_PS_NOTES, self._schedule_process_item(""))
-        self.table.setItem(row, _COL_PS_TEMPERATURE, self._schedule_process_item(""))
-        self.table.setItem(row, _COL_PS_TIME, self._schedule_process_item(""))
-        self.table.setItem(row, _COL_PS_PROTECTIVE_GAS, self._schedule_process_item(""))
+        src = dict(p or {})
+        kind = normalize_process_kind(src.get("kind") or "reducer", area_reduction=0.0)
+        if kind == "drawing":
+            kind = "reducer"
+        self._set_pass_schedule_mechanics_placeholders(row)
+        self._set_pass_schedule_row_kind(row, kind)
+        self._set_pass_schedule_process_cells(row, {**src, "kind": kind, "r": 0.0})
         self._sync_pass_schedule_incoming_row_outputs()
+        h = self.table.verticalHeaderItem(row)
+        if h is None:
+            h = QTableWidgetItem("Incoming")
+            self.table.setVerticalHeaderItem(row, h)
+        else:
+            h.setText("Incoming")
+        h.setData(Qt.ItemDataRole.UserRole, kind)
 
     def _sync_pass_schedule_incoming_row_outputs(self) -> None:
-        """Output OD/ID on incoming row mirror Tubing Project incoming diameters; Mandrel/Plug stays empty (—)."""
+        """Output OD/ID on Incoming row mirror Tubing Project incoming diameters; Mandrel/Plug stays empty (—)."""
         self._commit_tubing_project_diameter_edits()
         row = _PASS_SCHEDULE_INCOMING_ROW
         if self.table.rowCount() <= row:
@@ -2075,6 +2166,21 @@ class TubingMaster(QMainWindow):
         self.table.setItem(row, _COL_OUTPUT_OD, self._centered_table_item(f"{odi:.4f}", read_only=True))
         self.table.setItem(row, _COL_OUTPUT_ID, self._centered_table_item(f"{idi:.4f}", read_only=True))
         self._set_mandrel_plug_placeholder(row)
+
+    def _pass_schedule_incoming_process_dict(self) -> Dict[str, Any]:
+        """Serializable process metadata for the Incoming row (e.g. kind=reducer)."""
+        row = _PASS_SCHEDULE_INCOMING_ROW
+        if self.table.rowCount() <= row:
+            return {"kind": "reducer", "equipment": "", "notes": ""}
+        d = self._pass_schedule_row_to_dict(row)
+        kind = normalize_process_kind(d.get("kind") or "reducer", area_reduction=0.0)
+        if kind == "drawing":
+            kind = "reducer"
+        d["kind"] = kind
+        d["r"] = 0.0
+        d["alpha_deg"] = 0.0
+        d["mu"] = 0.0
+        return d
 
     def _commit_pass_schedule_mandrel_plug_edits(self) -> None:
         for row in range(self.table.rowCount()):
@@ -2452,7 +2558,26 @@ class TubingMaster(QMainWindow):
             temp_s = ""
             time_s = ""
             gas_s = ""
+            kind = self._pass_schedule_row_kind(row)
+            if kind == "annealing":
+                wt = self.table.cellWidget(row, _COL_PS_TEMPERATURE)
+                if isinstance(wt, QSpinBox):
+                    temp_s = str(wt.value())
+                else:
+                    temp_s = cell(_COL_PS_TEMPERATURE)
+                wm = self.table.cellWidget(row, _COL_PS_TIME)
+                if isinstance(wm, QSpinBox):
+                    time_s = str(wm.value())
+                else:
+                    time_s = cell(_COL_PS_TIME)
+                wg = self.table.cellWidget(row, _COL_PS_PROTECTIVE_GAS)
+                if isinstance(wg, QComboBox):
+                    gt = wg.currentText().strip()
+                    gas_s = "" if gt == "—" else gt
+                else:
+                    gas_s = cell(_COL_PS_PROTECTIVE_GAS)
         else:
+            kind = "drawing"
             wt = self.table.cellWidget(row, _COL_PS_TEMPERATURE)
             if isinstance(wt, QSpinBox):
                 temp_s = str(wt.value())
@@ -2472,20 +2597,54 @@ class TubingMaster(QMainWindow):
             else:
                 gas_s = cell(_COL_PS_PROTECTIVE_GAS)
 
-        return {
-            "r": r,
-            "alpha_deg": a,
-            "mu": mu,
+        kind = normalize_process_kind(kind if r <= 0.0 else "drawing", area_reduction=r)
+        out: Dict[str, Any] = {
+            "kind": kind,
+            "r": r if kind == "drawing" else 0.0,
+            "alpha_deg": a if kind == "drawing" else 0.0,
+            "mu": mu if kind == "drawing" else 0.0,
             "temperature": temp_s,
             "time": time_s,
             "protective_gas": gas_s,
             "equipment": cell(_COL_PS_EQUIPMENT),
             "notes": cell(_COL_PS_NOTES),
         }
+        return out
 
     def _on_pass_schedule_table_cell_changed(self, row: int, column: int) -> None:
         """Semi-die angle / equipment / notes etc.; area reduction uses its own spinbox signals."""
+        if column == _COL_PS_EQUIPMENT:
+            self._maybe_save_schedule_equipment_from_cell(row)
         self._refresh_schedule_visuals()
+
+    def _maybe_save_schedule_equipment_from_cell(self, row: int) -> None:
+        """When Equipment is typed in the table, offer to add it to the plant list."""
+        from tubing_master.plant_equipment import add_plant_equipment, equipment_known_for_kind
+        from tubing_master.ui.add_process_dialog import process_kind_display_label
+
+        it = self.table.item(row, _COL_PS_EQUIPMENT)
+        name = it.text().strip() if it is not None else ""
+        if not name:
+            return
+        kind = (
+            self._pass_schedule_row_kind(row)
+            if not self._is_pass_schedule_incoming_row(row)
+            else (self._pass_schedule_incoming_process_dict().get("kind") or "reducer")
+        )
+        kind = str(kind or "drawing")
+        if equipment_known_for_kind(kind, name):
+            return
+        reply = QMessageBox.question(
+            self,
+            "Save equipment to plant list?",
+            f'“{name}” is not in the plant equipment list for '
+            f"{process_kind_display_label(kind)}.\n\n"
+            "Save this name to the plant list for future schedules?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            add_plant_equipment(kind, name)
 
     def _pass_schedule_table_as_dicts(self) -> list[Dict[str, Any]]:
         return [
@@ -2501,15 +2660,12 @@ class TubingMaster(QMainWindow):
         self.table.setRowCount(total)
         labels = ["Incoming"] + [f"Pass {i + 1}" for i in range(n_draw)]
         self.table.setVerticalHeaderLabels(labels)
-        self._setup_pass_schedule_incoming_row()
+        self._setup_pass_schedule_incoming_row({"kind": "reducer"})
         for r in range(1, total):
-            self._set_pass_row_area_reduction_spin_programmatic(r, 0.12)
-            self._set_pass_row_semi_die_angle_spin_programmatic(r, 12.0)
-            self._set_pass_row_lubricant_combo_programmatic(r, 0.06)
-            self.table.setItem(r, _COL_OUTPUT_OD, self._centered_table_item("—", read_only=True))
-            self.table.setItem(r, _COL_OUTPUT_ID, self._centered_table_item("—", read_only=True))
-            self._set_mandrel_plug_placeholder(r)
-            self._set_pass_schedule_process_cells(r, {})
+            self._configure_pass_schedule_row(
+                r,
+                {"kind": "drawing", "r": 0.12, "alpha_deg": 12.0, "mu": 0.06},
+            )
         self._ht_suggestion_anchor_material = self.material_combo.currentText()
         self._prioritize_inventory_dies_for_non_final_passes()
 
@@ -2522,16 +2678,18 @@ class TubingMaster(QMainWindow):
         self.table.setRowCount(total)
         labels = ["Incoming"] + [f"Pass {i + 1}" for i in range(n_draw)]
         self.table.setVerticalHeaderLabels(labels)
-        self._setup_pass_schedule_incoming_row()
+        self._setup_pass_schedule_incoming_row({"kind": "reducer"})
         for i, p in enumerate(draws):
             r = 1 + i
-            self._set_pass_row_area_reduction_spin_programmatic(r, p.area_reduction_fraction)
-            self._set_pass_row_semi_die_angle_spin_programmatic(r, p.semi_die_angle_deg)
-            self._set_pass_row_lubricant_combo_programmatic(r, p.friction_mu)
-            self.table.setItem(r, _COL_OUTPUT_OD, self._centered_table_item("—", read_only=True))
-            self.table.setItem(r, _COL_OUTPUT_ID, self._centered_table_item("—", read_only=True))
-            self._set_mandrel_plug_placeholder(r)
-            self._set_pass_schedule_process_cells(r, {})
+            self._configure_pass_schedule_row(
+                r,
+                {
+                    "kind": "drawing",
+                    "r": p.area_reduction_fraction,
+                    "alpha_deg": p.semi_die_angle_deg,
+                    "mu": p.friction_mu,
+                },
+            )
         self._ht_suggestion_anchor_material = self.material_combo.currentText()
 
     def _is_pass_schedule_incoming_row_on(self, table: QTableWidget, row: int) -> bool:
@@ -2961,21 +3119,156 @@ class TubingMaster(QMainWindow):
         )
 
     def _restore_pass_table_vertical_labels_from_cells(self) -> None:
-        """Row 0 is Incoming; below that label Pass n when area reduction (col 2) > 0."""
+        """Row 0 stays Incoming; drawing rows Pass n; auxiliary rows use process-type labels."""
         labels: list[str] = []
+        kinds: list[str | None] = []
         pass_n = 0
         for row in range(self.table.rowCount()):
             if self._is_pass_schedule_incoming_row(row):
+                kind = self._pass_schedule_row_kind(row) or "reducer"
+                if kind == "drawing":
+                    kind = "reducer"
                 labels.append("Incoming")
+                kinds.append(kind)
                 continue
-            rv = self._pass_row_area_reduction_fraction(row)
-            if rv > 0:
+            kind = self._pass_schedule_row_kind(row)
+            if kind == "drawing" and self._pass_row_area_reduction_fraction(row) > 0:
                 pass_n += 1
                 labels.append(f"Pass {pass_n}")
+                kinds.append("drawing")
+            elif is_auxiliary_process_kind(kind):
+                labels.append(process_kind_display_label(kind))
+                kinds.append(kind)
             else:
                 labels.append("—")
-        if labels:
-            self.table.setVerticalHeaderLabels(labels)
+                kinds.append(kind or None)
+        if not labels:
+            return
+        self.table.setVerticalHeaderLabels(labels)
+        for row, kind in enumerate(kinds):
+            if kind is None:
+                continue
+            h = self.table.verticalHeaderItem(row)
+            if h is None:
+                h = QTableWidgetItem(labels[row])
+                self.table.setVerticalHeaderItem(row, h)
+            h.setData(Qt.ItemDataRole.UserRole, kind)
+            if row == _PASS_SCHEDULE_INCOMING_ROW:
+                h.setText("Incoming")
+
+    def _on_pass_schedule_context_menu(self, pos) -> None:
+        index = self.table.indexAt(pos)
+        row = index.row() if index.isValid() else self.table.rowCount() - 1
+        menu = QMenu(self)
+        act_edit = menu.addAction("Edit process…")
+        act_below = menu.addAction("Insert process below…")
+        act_above = menu.addAction("Insert process above…")
+        act_remove = menu.addAction("Remove process")
+        if row < 0:
+            act_edit.setEnabled(False)
+            act_above.setEnabled(False)
+            act_below.setEnabled(False)
+            act_remove.setEnabled(False)
+        elif self._is_pass_schedule_incoming_row(row):
+            act_above.setEnabled(False)
+            act_remove.setEnabled(False)
+        chosen = menu.exec(self.table.viewport().mapToGlobal(pos))
+        if chosen is None:
+            return
+        if chosen is act_edit:
+            self._prompt_edit_process_at(row)
+        elif chosen is act_below:
+            insert_at = max(1, row + 1) if row >= 0 else self.table.rowCount()
+            self._prompt_insert_process_at(insert_at)
+        elif chosen is act_above:
+            insert_at = max(1, row)
+            self._prompt_insert_process_at(insert_at)
+        elif chosen is act_remove:
+            self._remove_pass_schedule_process_row(row)
+
+    def _prompt_edit_process_at(self, row: int) -> None:
+        if row < 0 or row >= self.table.rowCount():
+            return
+        mat = self.material_combo.currentText()
+        current = (
+            self._pass_schedule_incoming_process_dict()
+            if self._is_pass_schedule_incoming_row(row)
+            else self._pass_schedule_row_to_dict(row)
+        )
+        allowed = None
+        default_kind = current.get("kind") or "annealing"
+        if self._is_pass_schedule_incoming_row(row):
+            allowed = ("reducer", "annealing", "straightening", "sandblasting")
+            default_kind = current.get("kind") or "reducer"
+        spec, ok = run_add_process_dialog(
+            self,
+            default_kind=str(default_kind),
+            default_temp_c=suggested_interpass_ht_temperature_c(mat),
+            default_time_min=suggested_interpass_hold_time_min(mat),
+            title="Edit process",
+            initial=current,
+            allowed_kinds=allowed,
+        )
+        if not ok or not spec:
+            return
+        self.table.blockSignals(True)
+        try:
+            if self._is_pass_schedule_incoming_row(row):
+                self._setup_pass_schedule_incoming_row(spec)
+            else:
+                self._configure_pass_schedule_row(row, spec)
+            self._restore_pass_table_vertical_labels_from_cells()
+        finally:
+            self.table.blockSignals(False)
+        self._refresh_schedule_visuals()
+        self._update_project_history_panel()
+
+    def _prompt_insert_process_at(self, insert_at: int) -> None:
+        mat = self.material_combo.currentText()
+        spec, ok = run_add_process_dialog(
+            self,
+            default_kind="annealing",
+            default_temp_c=suggested_interpass_ht_temperature_c(mat),
+            default_time_min=suggested_interpass_hold_time_min(mat),
+            title="Add process",
+        )
+        if not ok or not spec:
+            return
+        self._insert_pass_schedule_process_at(insert_at, spec)
+
+    def _insert_pass_schedule_process_at(self, insert_at: int, spec: Dict[str, Any]) -> None:
+        insert_at = max(1, min(int(insert_at), self.table.rowCount()))
+        self.table.blockSignals(True)
+        try:
+            self.table.insertRow(insert_at)
+            self._configure_pass_schedule_row(insert_at, spec)
+            self._restore_pass_table_vertical_labels_from_cells()
+        finally:
+            self.table.blockSignals(False)
+        self._refresh_schedule_visuals()
+        self._update_project_history_panel()
+
+    def _remove_pass_schedule_process_row(self, row: int) -> None:
+        if row <= _PASS_SCHEDULE_INCOMING_ROW or row >= self.table.rowCount():
+            return
+        # Keep at least one drawing pass when removing a draw row.
+        if self._pass_schedule_row_is_draw_pass(row) and len(self._draw_row_indices()) <= 1:
+            QMessageBox.information(
+                self,
+                "Remove process",
+                "Keep at least one drawing pass in the schedule.",
+            )
+            return
+        self.table.blockSignals(True)
+        try:
+            self._clear_pass_schedule_ht_widgets(row)
+            self._clear_pass_schedule_mechanics_widgets(row)
+            self.table.removeRow(row)
+            self._restore_pass_table_vertical_labels_from_cells()
+        finally:
+            self.table.blockSignals(False)
+        self._refresh_schedule_visuals()
+        self._update_project_history_panel()
 
     def _draw_row_indices(self) -> list[int]:
         """Row indices for drawing passes (positive area reduction in col 2); stops before legacy HT rows."""
@@ -3603,25 +3896,20 @@ class TubingMaster(QMainWindow):
                 self._set_backend_from_schedule_dict(sch)
 
             if passes:
-                total = _pass_table_total_rows_for_draw_count(len(passes))
+                total = 1 + len(passes)
                 self.table.setRowCount(total)
-                labels = ["Incoming"] + [f"Pass {i + 1}" for i in range(len(passes))]
-                self.table.setVerticalHeaderLabels(labels)
-                self._setup_pass_schedule_incoming_row()
+                self.table.setVerticalHeaderLabels(
+                    ["Incoming"] + [f"Step {i + 1}" for i in range(len(passes))]
+                )
+                incoming_src = sch.get("incoming_process")
+                if not isinstance(incoming_src, dict):
+                    incoming_src = {"kind": "reducer"}
+                self._setup_pass_schedule_incoming_row(incoming_src)
                 for row, p in enumerate(passes):
                     if not isinstance(p, dict):
                         p = {}
                     r_idx = 1 + row
-                    r = float(p.get("r", 0.12))
-                    a = float(p.get("alpha_deg", 12.0))
-                    mu = float(p.get("mu", 0.06))
-                    self._set_pass_row_area_reduction_spin_programmatic(r_idx, r)
-                    self._set_pass_row_semi_die_angle_spin_programmatic(r_idx, a)
-                    self._set_pass_row_lubricant_combo_programmatic(r_idx, mu)
-                    self.table.setItem(r_idx, _COL_OUTPUT_OD, self._centered_table_item("—", read_only=True))
-                    self.table.setItem(r_idx, _COL_OUTPUT_ID, self._centered_table_item("—", read_only=True))
-                    self._set_mandrel_plug_placeholder(r_idx)
-                    self._set_pass_schedule_process_cells(r_idx, p)
+                    self._configure_pass_schedule_row(r_idx, p)
                 self._restore_pass_table_vertical_labels_from_cells()
             else:
                 if not self._resize_pass_table_from_geometry_suggestion(silent=True):
@@ -3630,6 +3918,10 @@ class TubingMaster(QMainWindow):
                         self._rebuild_pass_table_for_draw_count(_MIN_PASS_TABLE_ROWS)
                     finally:
                         self.table.blockSignals(False)
+                incoming_src = sch.get("incoming_process")
+                if isinstance(incoming_src, dict):
+                    self._setup_pass_schedule_incoming_row(incoming_src)
+                    self._restore_pass_table_vertical_labels_from_cells()
 
             q_src = rec.quotation if rec.quotation is not None else proj.get("quotation")
             if isinstance(q_src, dict) and q_src:
@@ -5314,11 +5606,12 @@ class TubingMaster(QMainWindow):
             for row in range(self.table.rowCount()):
                 if self._is_pass_schedule_incoming_row(row):
                     continue
-                r = self._pass_row_area_reduction_fraction(row)
-                if r > 0:
+                if self._pass_schedule_row_is_draw_pass(row):
                     valid_rows.append(row)
 
             ods_mm, ids_mm, _n_passes, err = self._schedule_geometry_mm()
+            last_od = f"{float(self.in_od_mm.value()):.4f}"
+            last_id = f"{float(self.in_id_mm.value()):.4f}"
 
             for row in range(self.table.rowCount()):
                 if self._is_pass_schedule_incoming_row(row):
@@ -5326,16 +5619,20 @@ class TubingMaster(QMainWindow):
                 if err:
                     _set_out(row, "—", "—")
                     continue
-                if row not in valid_rows:
-                    _set_out(row, "—", "—")
-                    continue
-                idx = valid_rows.index(row)
-                if idx + 1 >= len(ods_mm):
-                    _set_out(row, "—", "—")
-                    continue
-                od_a = ods_mm[idx + 1]
-                id_a = ids_mm[idx + 1]
-                _set_out(row, f"{od_a:.4f}", f"{id_a:.4f}")
+                if row in valid_rows:
+                    idx = valid_rows.index(row)
+                    if idx + 1 >= len(ods_mm):
+                        _set_out(row, "—", "—")
+                        continue
+                    od_a = ods_mm[idx + 1]
+                    id_a = ids_mm[idx + 1]
+                    last_od = f"{od_a:.4f}"
+                    last_id = f"{id_a:.4f}"
+                    _set_out(row, last_od, last_id)
+                else:
+                    # Auxiliary processes keep tube size from the previous drawing exit.
+                    _set_out(row, last_od, last_id)
+                    self._set_mandrel_plug_placeholder(row)
         finally:
             self.table.blockSignals(False)
         self.table.viewport().update()
@@ -5439,6 +5736,7 @@ class TubingMaster(QMainWindow):
             "drawing_method": self.drawing_method_combo.currentText(),
             "pass_schedule": {
                 "simulation_backend": self._simulation_backend_kind(),
+                "incoming_process": self._pass_schedule_incoming_process_dict(),
                 "passes": pass_rows,
             },
             "die_inventory": self._die_inventory_as_dicts(),
