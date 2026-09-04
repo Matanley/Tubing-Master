@@ -104,8 +104,8 @@ powershell -File packaging\create_windows_installer.ps1
 Or tag a release locally:
 
 ```bash
-git tag v1.0.4
-git push origin v1.0.4
+git tag v1.0.5
+git push origin v1.0.5
 ```
 
 ### Manual PyInstaller

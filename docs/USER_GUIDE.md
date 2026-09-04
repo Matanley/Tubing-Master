@@ -101,11 +101,11 @@ Use this for verification or research setups. The packaged app ships without dol
 
 ### Process BOM
 
-Generates line items from the pass schedule and analytical metrics:
+Generates line items from the **full** pass schedule (not only drawing):
 
-- Per-pass die and tooling rows
-- Pulling stress, safety factor vs UTS, estimated grain size
-- Nitinol-specific unloading / springback when applicable
+- Incoming / reducer and every auxiliary process (annealing, straightening, sandblasting, …)
+- Per drawing pass: die size, semi-die α, lubricant, mandrel/plug, and OD/ID before→after
+- Equipment, heat-treat temperature/time/gas, and notes from the schedule
 
 Export to Excel for shop travelers or internal review.
 
@@ -119,7 +119,7 @@ Maintain a library of semi-dies (angle α, OD range, stock status). The app can:
 
 ### Quotation
 
-Builds a customer quote from stock mass (from geometry and material density), pass count, and editable service lines (preprocessing, postprocessing, expedite, extras). Export to Excel.
+Builds a customer quote from stock mass (geometry × density × price/kg) plus a charge line for **every** Pass schedule step (Incoming / reducer, drawing, annealing, straightening, sandblasting, …) and editable service lines (preprocessing, postprocessing, expedite, extras). Schedule edits refresh the Quotation table automatically. Export to Excel.
 
 ---
 

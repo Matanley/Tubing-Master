@@ -189,7 +189,10 @@ _COL_PS_PROTECTIVE_GAS = 8
 _COL_PS_EQUIPMENT = 9
 _COL_PS_NOTES = 10
 # Process BOM table: Lubricant column must show full preset labels (no ellipsis).
-_BOM_COL_LUBRICANT = 7
+# Columns: Step, Process, OD before, ID before, OD after, ID after, Die Size,
+#          Semi-die α, Lubricant, Mandrel/Plug, Equipment, Notes
+_BOM_COL_LUBRICANT = 8
+_BOM_COL_COUNT = 12
 # Die-inventory match shading applies only to this column (semi-die α), not the whole row.
 _PASS_SCHEDULE_DIE_MATCH_COL = _COL_SEMI_DIE_ANGLE
 # Protective atmosphere presets for Pass Schedule inter-pass heat treatment (column 8).
@@ -1168,10 +1171,11 @@ class TubingMaster(QMainWindow):
             alignment=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
         )
         bom_layout.addWidget(bom_btn_row)
-        self.bom_table = QTableWidget(0, 10)
+        self.bom_table = QTableWidget(0, _BOM_COL_COUNT)
         self.bom_table.setHorizontalHeaderLabels(
             [
-                "Pass",
+                "Step",
+                "Process",
                 "OD before (mm)",
                 "ID before (mm)",
                 "OD after (mm)",
@@ -1180,6 +1184,7 @@ class TubingMaster(QMainWindow):
                 "Semi-die α (°)",
                 "Lubricant",
                 "Mandrel/Plug",
+                "Equipment",
                 "Notes",
             ]
         )
@@ -1337,8 +1342,9 @@ class TubingMaster(QMainWindow):
         quote_layout.setContentsMargins(0, 0, 0, 0)
         quote_layout.setSpacing(6)
         quote_intro = QLabel(
-            "Combine incoming stock mass (annulus × length × density × price/kg) with per-pass drawing charges. "
-            "Unit costs and comments merge across schedule refreshes when pass indices match."
+            "Combine incoming stock mass (annulus × length × density × price/kg) with charges for every "
+            "Pass schedule step (Incoming, drawing, annealing, straightening, sandblasting, …). "
+            "Unit costs and comments merge across schedule refreshes when step identity matches."
         )
         quote_intro.setWordWrap(True)
         quote_layout.addWidget(quote_intro)
@@ -1426,8 +1432,9 @@ class TubingMaster(QMainWindow):
         quote_btn_layout.setSpacing(8)
         self.quote_refresh_btn = QPushButton("Recalculate from schedule")
         self.quote_refresh_btn.setToolTip(
-            "After you change passes or geometry, click here to rebuild pricing lines from Tubing Project + Pass schedule "
-            "(preserves unit costs where pass numbers match). Opening this tab refreshes automatically."
+            "Rebuild pricing lines from Tubing Project + full Pass schedule "
+            "(Incoming, drawing, and auxiliary processes). Preserves unit costs when step identity matches. "
+            "Schedule edits and opening this tab also refresh automatically."
         )
         self.quote_refresh_btn.clicked.connect(self._recalculate_quotation_from_schedule)
         self.quote_export_btn = QPushButton("Export quotation to Excel…")
@@ -1459,7 +1466,7 @@ class TubingMaster(QMainWindow):
         quote_layout.addWidget(self.quote_totals_label)
         self.quote_table = QTableWidget(0, 6)
         self.quote_table.setHorizontalHeaderLabels(
-            ["Pass", "Description", "Die", "Qty", "Unit cost", "Comments"]
+            ["Step", "Description", "Tooling / Equipment", "Qty", "Unit cost", "Comments"]
         )
         self.quote_table.setWordWrap(True)
         self.quote_table.setTextElideMode(Qt.TextElideMode.ElideNone)
@@ -1770,13 +1777,24 @@ class TubingMaster(QMainWindow):
         self._clear_mandrel_plug_cell(row)
 
     def _set_pass_schedule_mechanics_placeholders(self, row: int) -> None:
-        self._clear_pass_schedule_mechanics_widgets(row)
-        for col in (_COL_AREA_REDUCTION, _COL_SEMI_DIE_ANGLE, _COL_LUBRICANT):
-            self.table.setItem(row, col, self._centered_table_item("—", read_only=True))
-        self._set_mandrel_plug_placeholder(row)
+        """Legacy helper: prefer editable mechanics widgets via _install_pass_schedule_mechanics."""
+        self._install_pass_schedule_mechanics(row, r=0.0, alpha_deg=12.0, mu=0.06)
+
+    def _install_pass_schedule_mechanics(
+        self,
+        row: int,
+        *,
+        r: float = 0.0,
+        alpha_deg: float = 12.0,
+        mu: float = 0.06,
+    ) -> None:
+        """Install editable area-reduction / α / lubricant widgets for any process kind."""
+        self._set_pass_row_area_reduction_spin_programmatic(row, float(r))
+        self._set_pass_row_semi_die_angle_spin_programmatic(row, float(alpha_deg))
+        self._set_pass_row_lubricant_combo_programmatic(row, float(mu))
 
     def _configure_pass_schedule_row(self, row: int, p: Dict[str, Any] | None = None) -> None:
-        """Fill one schedule row from a pass/process dict (drawing or auxiliary)."""
+        """Fill one schedule row from a pass/process dict (drawing or auxiliary). All fields editable."""
         src = dict(p or {})
         try:
             r_raw = float(src.get("r", 0.0) or 0.0)
@@ -1785,44 +1803,34 @@ class TubingMaster(QMainWindow):
         kind = normalize_process_kind(src.get("kind"), area_reduction=r_raw)
         self._set_pass_schedule_row_kind(row, kind)
 
-        self.table.setItem(row, _COL_OUTPUT_OD, self._centered_table_item("—", read_only=True))
-        self.table.setItem(row, _COL_OUTPUT_ID, self._centered_table_item("—", read_only=True))
+        self.table.setItem(row, _COL_OUTPUT_OD, self._centered_table_item("—"))
+        self.table.setItem(row, _COL_OUTPUT_ID, self._centered_table_item("—"))
 
         if kind == "drawing":
             r = r_raw if r_raw > 0 else 0.12
-            a = float(src.get("alpha_deg", 12.0) or 12.0)
-            mu = float(src.get("mu", 0.06) or 0.06)
-            self._set_pass_row_area_reduction_spin_programmatic(row, r)
-            self._set_pass_row_semi_die_angle_spin_programmatic(row, a)
-            self._set_pass_row_lubricant_combo_programmatic(row, mu)
-            self._set_mandrel_plug_placeholder(row)
         else:
-            self._set_pass_schedule_mechanics_placeholders(row)
+            r = max(0.0, r_raw)
+        try:
+            a = float(src.get("alpha_deg", 12.0) or 12.0)
+        except (TypeError, ValueError):
+            a = 12.0
+        try:
+            mu = float(src.get("mu", 0.06) or 0.06)
+        except (TypeError, ValueError):
+            mu = 0.06
+        if a <= 0.0:
+            a = 12.0
+        if mu <= 0.0:
+            mu = 0.06
+        self._install_pass_schedule_mechanics(row, r=r, alpha_deg=a, mu=mu)
+        self._set_mandrel_plug_placeholder(row)
 
         self._set_pass_schedule_process_cells(row, {**src, "kind": kind})
 
     def _set_pass_schedule_process_cells(self, row: int, p: Dict[str, Any] | None = None) -> None:
-        """Temperature/time/gas for drawing & annealing; equipment & notes for all process kinds."""
+        """Temperature/time/gas, equipment & notes — editable for every process kind."""
         src = p or {}
         self._clear_pass_schedule_ht_widgets(row)
-        kind = normalize_process_kind(
-            src.get("kind") or self._pass_schedule_row_kind(row),
-            area_reduction=self._pass_row_area_reduction_fraction(row),
-        )
-        show_ht = kind == "annealing" or (
-            kind == "drawing" and self._pass_row_area_reduction_fraction(row) > 0.0
-        )
-
-        if not show_ht:
-            for col in (_COL_PS_TEMPERATURE, _COL_PS_TIME, _COL_PS_PROTECTIVE_GAS):
-                self.table.setItem(row, col, self._schedule_process_item(""))
-            self.table.setItem(
-                row,
-                _COL_PS_EQUIPMENT,
-                self._schedule_process_item(str(src.get("equipment", "") or "")),
-            )
-            self.table.setItem(row, _COL_PS_NOTES, self._schedule_process_item(str(src.get("notes", "") or "")))
-            return
 
         mat = self.material_combo.currentText()
         def_temp = suggested_interpass_ht_temperature_c(mat)
@@ -1838,7 +1846,7 @@ class TubingMaster(QMainWindow):
         sb_t.setKeyboardTracking(False)
         sb_t.setValue(temp_val)
         sb_t.setToolTip(
-            f"Illustrative heat-treat temperature (°C); default {def_temp} °C for {mat}. "
+            f"Process temperature (°C); default {def_temp} °C for {mat}. "
             "Adjust with the spin buttons — verify against your qualified procedures."
         )
         self._style_pass_schedule_spinbox(sb_t)
@@ -1850,7 +1858,7 @@ class TubingMaster(QMainWindow):
         sb_tm.setKeyboardTracking(False)
         sb_tm.setValue(time_val)
         sb_tm.setToolTip(
-            f"Illustrative hold time; default {def_time} min for {mat}. Adjust with the spin buttons."
+            f"Hold / cycle time; default {def_time} min for {mat}. Adjust with the spin buttons."
         )
         self._style_pass_schedule_spinbox(sb_tm)
 
@@ -1859,7 +1867,7 @@ class TubingMaster(QMainWindow):
         for lab in _PROTECTIVE_GAS_OPTIONS:
             cb.addItem(lab)
         self._set_protective_gas_combo_from_saved(cb, gas_raw)
-        cb.setToolTip("Protective atmosphere for heat treatment on this step (preset list).")
+        cb.setToolTip("Protective atmosphere for this step (preset list).")
 
         sb_t.valueChanged.connect(lambda _v, r=row: self._on_ht_temperature_value_changed(r))
         sb_tm.valueChanged.connect(lambda _v, r=row: self._on_ht_time_value_changed(r))
@@ -1925,6 +1933,10 @@ class TubingMaster(QMainWindow):
 
     def _on_pass_schedule_area_reduction_changed(self, row: int) -> None:
         if self._area_reduction_programmatic:
+            return
+        if self._is_pass_schedule_incoming_row(row):
+            # Incoming is not a drawing pass — keep r at 0.
+            self._set_pass_row_area_reduction_spin_programmatic(row, 0.0)
             return
         self.table.blockSignals(True)
         try:
@@ -2137,13 +2149,25 @@ class TubingMaster(QMainWindow):
         return row == _PASS_SCHEDULE_INCOMING_ROW and self.table.rowCount() > row
 
     def _setup_pass_schedule_incoming_row(self, p: Dict[str, Any] | None = None) -> None:
-        """Row 0 = Incoming: OD/ID from Tubing Project; editable process (default Reducer)."""
+        """Row 0 = Incoming: OD/ID from Tubing Project; all process fields editable (default Reducer)."""
         row = _PASS_SCHEDULE_INCOMING_ROW
         src = dict(p or {})
         kind = normalize_process_kind(src.get("kind") or "reducer", area_reduction=0.0)
         if kind == "drawing":
             kind = "reducer"
-        self._set_pass_schedule_mechanics_placeholders(row)
+        try:
+            a = float(src.get("alpha_deg", 12.0) or 12.0)
+        except (TypeError, ValueError):
+            a = 12.0
+        try:
+            mu = float(src.get("mu", 0.06) or 0.06)
+        except (TypeError, ValueError):
+            mu = 0.06
+        if a <= 0.0:
+            a = 12.0
+        if mu <= 0.0:
+            mu = 0.06
+        self._install_pass_schedule_mechanics(row, r=0.0, alpha_deg=a, mu=mu)
         self._set_pass_schedule_row_kind(row, kind)
         self._set_pass_schedule_process_cells(row, {**src, "kind": kind, "r": 0.0})
         self._sync_pass_schedule_incoming_row_outputs()
@@ -2156,16 +2180,19 @@ class TubingMaster(QMainWindow):
         h.setData(Qt.ItemDataRole.UserRole, kind)
 
     def _sync_pass_schedule_incoming_row_outputs(self) -> None:
-        """Output OD/ID on Incoming row mirror Tubing Project incoming diameters; Mandrel/Plug stays empty (—)."""
+        """Output OD/ID on Incoming row mirror Tubing Project incoming diameters (editable)."""
         self._commit_tubing_project_diameter_edits()
         row = _PASS_SCHEDULE_INCOMING_ROW
         if self.table.rowCount() <= row:
             return
         odi = float(self.in_od_mm.value())
         idi = float(self.in_id_mm.value())
-        self.table.setItem(row, _COL_OUTPUT_OD, self._centered_table_item(f"{odi:.4f}", read_only=True))
-        self.table.setItem(row, _COL_OUTPUT_ID, self._centered_table_item(f"{idi:.4f}", read_only=True))
-        self._set_mandrel_plug_placeholder(row)
+        self.table.setItem(row, _COL_OUTPUT_OD, self._centered_table_item(f"{odi:.4f}"))
+        self.table.setItem(row, _COL_OUTPUT_ID, self._centered_table_item(f"{idi:.4f}"))
+        if self._is_sink_drawing_method():
+            self._set_mandrel_plug_placeholder(row)
+        else:
+            self._sync_mandrel_plug_cell_from_output_id_mm(row, idi)
 
     def _pass_schedule_incoming_process_dict(self) -> Dict[str, Any]:
         """Serializable process metadata for the Incoming row (e.g. kind=reducer)."""
@@ -2178,8 +2205,6 @@ class TubingMaster(QMainWindow):
             kind = "reducer"
         d["kind"] = kind
         d["r"] = 0.0
-        d["alpha_deg"] = 0.0
-        d["mu"] = 0.0
         return d
 
     def _commit_pass_schedule_mandrel_plug_edits(self) -> None:
@@ -2553,56 +2578,35 @@ class TubingMaster(QMainWindow):
         r = self._pass_row_area_reduction_fraction(row)
         a = self._pass_row_semi_die_angle_deg(row)
         mu = self._pass_row_friction_mu(row)
-
-        if r <= 0.0:
-            temp_s = ""
-            time_s = ""
-            gas_s = ""
-            kind = self._pass_schedule_row_kind(row)
-            if kind == "annealing":
-                wt = self.table.cellWidget(row, _COL_PS_TEMPERATURE)
-                if isinstance(wt, QSpinBox):
-                    temp_s = str(wt.value())
-                else:
-                    temp_s = cell(_COL_PS_TEMPERATURE)
-                wm = self.table.cellWidget(row, _COL_PS_TIME)
-                if isinstance(wm, QSpinBox):
-                    time_s = str(wm.value())
-                else:
-                    time_s = cell(_COL_PS_TIME)
-                wg = self.table.cellWidget(row, _COL_PS_PROTECTIVE_GAS)
-                if isinstance(wg, QComboBox):
-                    gt = wg.currentText().strip()
-                    gas_s = "" if gt == "—" else gt
-                else:
-                    gas_s = cell(_COL_PS_PROTECTIVE_GAS)
-        else:
+        if r > 0.0:
             kind = "drawing"
-            wt = self.table.cellWidget(row, _COL_PS_TEMPERATURE)
-            if isinstance(wt, QSpinBox):
-                temp_s = str(wt.value())
-            else:
-                temp_s = cell(_COL_PS_TEMPERATURE)
+        else:
+            kind = normalize_process_kind(self._pass_schedule_row_kind(row), area_reduction=0.0)
 
-            wm = self.table.cellWidget(row, _COL_PS_TIME)
-            if isinstance(wm, QSpinBox):
-                time_s = str(wm.value())
-            else:
-                time_s = cell(_COL_PS_TIME)
+        wt = self.table.cellWidget(row, _COL_PS_TEMPERATURE)
+        if isinstance(wt, QSpinBox):
+            temp_s = str(wt.value())
+        else:
+            temp_s = cell(_COL_PS_TEMPERATURE)
 
-            wg = self.table.cellWidget(row, _COL_PS_PROTECTIVE_GAS)
-            if isinstance(wg, QComboBox):
-                gt = wg.currentText().strip()
-                gas_s = "" if gt == "—" else gt
-            else:
-                gas_s = cell(_COL_PS_PROTECTIVE_GAS)
+        wm = self.table.cellWidget(row, _COL_PS_TIME)
+        if isinstance(wm, QSpinBox):
+            time_s = str(wm.value())
+        else:
+            time_s = cell(_COL_PS_TIME)
 
-        kind = normalize_process_kind(kind if r <= 0.0 else "drawing", area_reduction=r)
+        wg = self.table.cellWidget(row, _COL_PS_PROTECTIVE_GAS)
+        if isinstance(wg, QComboBox):
+            gt = wg.currentText().strip()
+            gas_s = "" if gt == "—" else gt
+        else:
+            gas_s = cell(_COL_PS_PROTECTIVE_GAS)
+
         out: Dict[str, Any] = {
             "kind": kind,
             "r": r if kind == "drawing" else 0.0,
-            "alpha_deg": a if kind == "drawing" else 0.0,
-            "mu": mu if kind == "drawing" else 0.0,
+            "alpha_deg": a,
+            "mu": mu,
             "temperature": temp_s,
             "time": time_s,
             "protective_gas": gas_s,
@@ -2612,7 +2616,12 @@ class TubingMaster(QMainWindow):
         return out
 
     def _on_pass_schedule_table_cell_changed(self, row: int, column: int) -> None:
-        """Semi-die angle / equipment / notes etc.; area reduction uses its own spinbox signals."""
+        """Semi-die angle / equipment / notes / OD/ID etc.; area reduction uses its own spinbox signals."""
+        if column in (_COL_OUTPUT_OD, _COL_OUTPUT_ID) and not self._is_pass_schedule_incoming_row(row):
+            for c in (_COL_OUTPUT_OD, _COL_OUTPUT_ID):
+                it = self.table.item(row, c)
+                if it is not None:
+                    it.setData(Qt.ItemDataRole.UserRole, "manual")
         if column == _COL_PS_EQUIPMENT:
             self._maybe_save_schedule_equipment_from_cell(row)
         self._refresh_schedule_visuals()
@@ -2843,17 +2852,6 @@ class TubingMaster(QMainWindow):
     ) -> None:
         src = p or {}
         self._clear_pass_schedule_ht_widgets_on(table, row)
-        is_draw = self._table_pass_row_area_reduction_fraction(table, row) > 0.0
-        if not is_draw:
-            for col in (_COL_PS_TEMPERATURE, _COL_PS_TIME, _COL_PS_PROTECTIVE_GAS):
-                table.setItem(row, col, self._schedule_process_item(""))
-            table.setItem(
-                row,
-                _COL_PS_EQUIPMENT,
-                self._schedule_process_item(str(src.get("equipment", "") or "")),
-            )
-            table.setItem(row, _COL_PS_NOTES, self._schedule_process_item(str(src.get("notes", "") or "")))
-            return
 
         mat = self.material_combo.currentText()
         def_temp = suggested_interpass_ht_temperature_c(mat)
@@ -5049,6 +5047,7 @@ class TubingMaster(QMainWindow):
             self._update_pass_schedule_cross_section_strip()
             self._refresh_die_bom(silent=True)
             self._refresh_die_availability_row_styles()
+            self._refresh_quotation_from_pass_schedule(interactive=False)
         finally:
             self._in_refresh_schedule_visuals = False
             if self._pending_refresh_schedule_visuals:
@@ -5578,11 +5577,32 @@ class TubingMaster(QMainWindow):
         )
 
     def _sync_pass_table_outputs(self) -> None:
-        """Fill read-only Output OD/ID columns and Mandrel/Plug spinboxes from simulated geometry after each pass (by row)."""
+        """Fill Output OD/ID columns and Mandrel/Plug spinboxes from simulated geometry after each pass (by row)."""
 
-        def _set_out(row: int, od_txt: str, id_txt: str) -> None:
-            self.table.setItem(row, _COL_OUTPUT_OD, self._centered_table_item(od_txt, read_only=True))
-            self.table.setItem(row, _COL_OUTPUT_ID, self._centered_table_item(id_txt, read_only=True))
+        def _row_outputs_are_manual(row: int) -> bool:
+            for c in (_COL_OUTPUT_OD, _COL_OUTPUT_ID):
+                it = self.table.item(row, c)
+                if it is not None and it.data(Qt.ItemDataRole.UserRole) == "manual":
+                    return True
+            return False
+
+        def _set_out(row: int, od_txt: str, id_txt: str, *, force: bool = False) -> None:
+            # Keep user-customized OD/ID on non-drawing rows until the row is reconfigured.
+            if (
+                not force
+                and not self._pass_schedule_row_is_draw_pass(row)
+                and _row_outputs_are_manual(row)
+            ):
+                it = self.table.item(row, _COL_OUTPUT_ID)
+                id_cur = (it.text() if it is not None else "").strip()
+                if id_cur and id_cur != "—" and not self._is_sink_drawing_method():
+                    try:
+                        self._sync_mandrel_plug_cell_from_output_id_mm(row, float(id_cur))
+                    except ValueError:
+                        pass
+                return
+            self.table.setItem(row, _COL_OUTPUT_OD, self._centered_table_item(od_txt))
+            self.table.setItem(row, _COL_OUTPUT_ID, self._centered_table_item(id_txt))
             ot = od_txt.strip()
             it = id_txt.strip()
             if ot == "—" or it == "—":
@@ -5617,85 +5637,220 @@ class TubingMaster(QMainWindow):
                 if self._is_pass_schedule_incoming_row(row):
                     continue
                 if err:
-                    _set_out(row, "—", "—")
+                    _set_out(row, "—", "—", force=True)
                     continue
                 if row in valid_rows:
                     idx = valid_rows.index(row)
                     if idx + 1 >= len(ods_mm):
-                        _set_out(row, "—", "—")
+                        _set_out(row, "—", "—", force=True)
                         continue
                     od_a = ods_mm[idx + 1]
                     id_a = ids_mm[idx + 1]
                     last_od = f"{od_a:.4f}"
                     last_id = f"{id_a:.4f}"
-                    _set_out(row, last_od, last_id)
+                    _set_out(row, last_od, last_id, force=True)
                 else:
                     # Auxiliary processes keep tube size from the previous drawing exit.
                     _set_out(row, last_od, last_id)
-                    self._set_mandrel_plug_placeholder(row)
         finally:
             self.table.blockSignals(False)
         self.table.viewport().update()
+
+    def _schedule_row_equipment_text(self, row: int) -> str:
+        it = self.table.item(row, _COL_PS_EQUIPMENT)
+        return it.text().strip() if it is not None else ""
+
+    def _schedule_row_notes_text(self, row: int) -> str:
+        it = self.table.item(row, _COL_PS_NOTES)
+        return it.text().strip() if it is not None else ""
+
+    def _bom_step_label_for_schedule_row(self, row: int) -> str:
+        """Step label aligned with Pass schedule vertical header (Incoming / Pass n / Annealing…)."""
+        h = self.table.verticalHeaderItem(row)
+        if h is not None:
+            txt = (h.text() or "").strip()
+            if txt:
+                return txt
+        if self._is_pass_schedule_incoming_row(row):
+            return "Incoming"
+        kind = self._pass_schedule_row_kind(row)
+        if kind == "drawing" and self._pass_row_area_reduction_fraction(row) > 0:
+            return self._pass_display_number_for_schedule_row(row, row)
+        if is_auxiliary_process_kind(kind):
+            return process_kind_display_label(kind)
+        return str(row)
+
+    def _bom_notes_for_schedule_row(self, row: int, *, kind: str) -> str:
+        """Compose BOM Notes from HT fields (when relevant) and schedule notes."""
+        parts: list[str] = []
+        temp = self._pass_row_ht_temperature_int(row)
+        hold = self._pass_row_ht_time_int(row)
+        gas = self._pass_row_ht_gas_selection_text(row)
+        show_ht = kind in ("annealing", "drawing") or bool(gas) or hold > 0
+        if show_ht and (kind == "annealing" or kind == "drawing" or gas or hold > 0 or temp > 0):
+            ht = f"T={temp} °C, {hold} min"
+            if gas:
+                ht += f", {gas}"
+            parts.append(ht)
+        note = self._schedule_row_notes_text(row)
+        if note:
+            parts.append(note)
+        return "; ".join(parts)
 
     def _refresh_die_bom_manual(self) -> None:
         self._refresh_die_bom(silent=False)
 
     def _refresh_die_bom(self, silent: bool = True) -> None:
-        """Fill Pass BOM table: one row per pass, die parameters and tube sizes in/out of each die."""
+        """Fill Process BOM from the full Pass schedule (drawing + auxiliary + Incoming)."""
+        self._commit_tubing_project_diameter_edits()
         self._commit_pass_schedule_mandrel_plug_edits()
         self.bom_table.clearContents()
         self.bom_table.setRowCount(0)
-        ods_mm, ids_mm, n_passes, err = self._schedule_geometry_mm()
-        pass_rows_and_inputs = list(self._iter_schedule_pass_rows_and_inputs())
-        passes = [p for _, p in pass_rows_and_inputs]
+        ods_mm, ids_mm, n_draws, err = self._schedule_geometry_mm()
 
-        if err:
-            self.bom_hint.setText(f"Cannot build BOM: {err}")
-            if not silent:
-                QMessageBox.warning(self, "Pass BOM", err)
-            return
-
-        if n_passes == 0 or len(passes) == 0:
-            self.bom_hint.setText("No passes with positive area reduction — add rows on the Pass schedule tab.")
+        n_sched = self.table.rowCount()
+        if n_sched <= 0:
+            self.bom_hint.setText("No process rows on the Pass schedule tab.")
             if not silent:
                 QMessageBox.information(
                     self,
-                    "Pass BOM",
-                    "Add at least one pass (area reduction > 0) on the Pass schedule tab.",
+                    "Process BOM",
+                    "Add processes on the Pass schedule tab.",
                 )
             return
 
-        self.bom_table.setRowCount(n_passes)
-        for i, (sch_row, p) in enumerate(pass_rows_and_inputs):
-            od_b, id_b = ods_mm[i], ids_mm[i]
-            od_a, id_a = ods_mm[i + 1], ids_mm[i + 1]
-            pass_no = self._pass_display_number_for_schedule_row(sch_row, i + 1)
-            lub = self._lubricant_display_for_schedule_row(sch_row)
-            self.bom_table.setItem(i, 0, self._centered_table_item(pass_no))
-            self.bom_table.setItem(i, 1, self._centered_table_item(f"{od_b:.4f}"))
-            self.bom_table.setItem(i, 2, self._centered_table_item(f"{id_b:.4f}"))
-            self.bom_table.setItem(i, 3, self._centered_table_item(f"{od_a:.4f}"))
-            self.bom_table.setItem(i, 4, self._centered_table_item(f"{id_a:.4f}"))
-            self.bom_table.setItem(i, 5, self._centered_table_item(f"{od_a:.4f}"))
-            self.bom_table.setItem(i, 6, self._centered_table_item(f"{p.semi_die_angle_deg:.3f}"))
-            self.bom_table.setItem(i, _BOM_COL_LUBRICANT, self._centered_table_item(lub))
-            self.bom_table.setItem(i, 8, self._centered_table_item(self._pass_row_mandrel_plug_mm_display(sch_row)))
-            self.bom_table.setItem(i, 9, self._centered_table_item(""))
+        # Geometry chain index 0 = incoming; advanced only on drawing passes.
+        # On geometry errors, still list every schedule step with project OD/ID fallbacks.
+        draw_i = 0
+        if not err and ods_mm and ids_mm:
+            cur_od, cur_id = float(ods_mm[0]), float(ids_mm[0])
+            geo_ok = True
+        else:
+            cur_od = float(self.in_od_mm.value())
+            cur_id = float(self.in_id_mm.value())
+            ods_mm, ids_mm = [], []
+            n_draws = 0
+            geo_ok = False
+
+        self.bom_table.setRowCount(n_sched)
+        n_aux = 0
+        for bom_row, sch_row in enumerate(range(n_sched)):
+            is_incoming = self._is_pass_schedule_incoming_row(sch_row)
+            is_draw = (not is_incoming) and self._pass_schedule_row_is_draw_pass(sch_row)
+            if is_incoming:
+                kind = self._pass_schedule_row_kind(sch_row) or "reducer"
+                if kind == "drawing":
+                    kind = "reducer"
+            else:
+                kind = self._pass_schedule_row_kind(sch_row)
+            if is_auxiliary_process_kind(kind) and not is_incoming:
+                n_aux += 1
+
+            if geo_ok and is_draw and ods_mm and draw_i + 1 < len(ods_mm):
+                od_b, id_b = float(ods_mm[draw_i]), float(ids_mm[draw_i])
+                od_a, id_a = float(ods_mm[draw_i + 1]), float(ids_mm[draw_i + 1])
+                draw_i += 1
+                cur_od, cur_id = od_a, id_a
+                size_ok = True
+            else:
+                # Incoming / auxiliary / geometry fallback: size unchanged (use live Output cells when set).
+                od_txt = ""
+                id_txt = ""
+                od_it = self.table.item(sch_row, _COL_OUTPUT_OD)
+                id_it = self.table.item(sch_row, _COL_OUTPUT_ID)
+                if od_it is not None:
+                    od_txt = (od_it.text() or "").strip()
+                if id_it is not None:
+                    id_txt = (id_it.text() or "").strip()
+                try:
+                    od_a = float(od_txt) if od_txt and od_txt != "—" else cur_od
+                except ValueError:
+                    od_a = cur_od
+                try:
+                    id_a = float(id_txt) if id_txt and id_txt != "—" else cur_id
+                except ValueError:
+                    id_a = cur_id
+                od_b, id_b = cur_od, cur_id
+                if is_incoming:
+                    od_b = od_a
+                    id_b = id_a
+                cur_od, cur_id = od_a, id_a
+                size_ok = od_a > 0 and id_a > 0 and id_a < od_a
+
+            step = self._bom_step_label_for_schedule_row(sch_row)
+            process_label = process_kind_display_label(kind)
+
+            if is_draw and size_ok:
+                die_size = f"{od_a:.4f}"
+                alpha = f"{self._pass_row_semi_die_angle_deg(sch_row):.3f}"
+                lub = self._lubricant_display_for_schedule_row(sch_row)
+                mandrel = self._pass_row_mandrel_plug_mm_display(sch_row)
+                od_b_s, id_b_s = f"{od_b:.4f}", f"{id_b:.4f}"
+                od_a_s, id_a_s = f"{od_a:.4f}", f"{id_a:.4f}"
+            elif is_draw and not size_ok:
+                die_size = "—"
+                alpha = f"{self._pass_row_semi_die_angle_deg(sch_row):.3f}"
+                lub = self._lubricant_display_for_schedule_row(sch_row)
+                mandrel = self._pass_row_mandrel_plug_mm_display(sch_row)
+                od_b_s = id_b_s = od_a_s = id_a_s = "—"
+            else:
+                die_size = "—"
+                alpha = "—"
+                lub = "—"
+                mandrel = self._pass_row_mandrel_plug_mm_display(sch_row)
+                if mandrel == "—" and size_ok and not self._is_sink_drawing_method():
+                    mandrel = f"{id_a:.4f}"
+                if size_ok:
+                    od_b_s, id_b_s = f"{od_b:.4f}", f"{id_b:.4f}"
+                    od_a_s, id_a_s = f"{od_a:.4f}", f"{id_a:.4f}"
+                else:
+                    od_b_s = id_b_s = od_a_s = id_a_s = "—"
+
+            equipment = self._schedule_row_equipment_text(sch_row)
+            notes = self._bom_notes_for_schedule_row(sch_row, kind=kind)
+
+            self.bom_table.setItem(bom_row, 0, self._centered_table_item(step))
+            self.bom_table.setItem(bom_row, 1, self._centered_table_item(process_label))
+            self.bom_table.setItem(bom_row, 2, self._centered_table_item(od_b_s))
+            self.bom_table.setItem(bom_row, 3, self._centered_table_item(id_b_s))
+            self.bom_table.setItem(bom_row, 4, self._centered_table_item(od_a_s))
+            self.bom_table.setItem(bom_row, 5, self._centered_table_item(id_a_s))
+            self.bom_table.setItem(bom_row, 6, self._centered_table_item(die_size))
+            self.bom_table.setItem(bom_row, 7, self._centered_table_item(alpha))
+            self.bom_table.setItem(bom_row, _BOM_COL_LUBRICANT, self._centered_table_item(lub))
+            self.bom_table.setItem(bom_row, 9, self._centered_table_item(mandrel))
+            self.bom_table.setItem(bom_row, 10, self._centered_table_item(equipment))
+            self.bom_table.setItem(bom_row, 11, self._centered_table_item(notes))
 
         self.bom_table.resizeColumnToContents(_BOM_COL_LUBRICANT)
+        self.bom_table.resizeColumnToContents(1)
+        self.bom_table.resizeColumnToContents(10)
 
-        self.bom_hint.setText(
-            f"{n_passes} die line(s). OD/ID before and after each pass follow the analytical mild-steel schedule "
-            f"(confirm alloy and die steel with engineering)."
+        bits = [f"{n_sched} schedule step(s)"]
+        if n_draws:
+            bits.append(f"{n_draws} drawing")
+        if n_aux:
+            bits.append(f"{n_aux} auxiliary")
+        hint = (
+            f"{', '.join(bits)}. Process BOM mirrors the Pass schedule "
+            f"(drawing die lines use analytical OD/ID; auxiliary steps keep tube size)."
         )
+        if err:
+            hint = f"{hint} Geometry note: {err}"
+            if not silent:
+                QMessageBox.warning(self, "Process BOM", f"Schedule listed, but geometry is incomplete:\n{err}")
+        self.bom_hint.setText(hint)
+
 
     def _export_bom_excel(self) -> None:
         if self.bom_table.rowCount() == 0:
-            QMessageBox.information(self, "Pass BOM", "Nothing to export — refresh the BOM when passes exist.")
+            QMessageBox.information(
+                self, "Process BOM", "Nothing to export — refresh the BOM when schedule steps exist."
+            )
             return
         suggested = self._export_dialog_initial_path("xlsx")
         path_str, _ = QFileDialog.getSaveFileName(
-            self, "Export pass BOM", suggested, "Excel workbook (*.xlsx);;All files (*)"
+            self, "Export process BOM", suggested, "Excel workbook (*.xlsx);;All files (*)"
         )
         if not path_str:
             return
@@ -5715,14 +5870,14 @@ class TubingMaster(QMainWindow):
         except ImportError:
             QMessageBox.warning(
                 self,
-                "Pass BOM",
+                "Process BOM",
                 "openpyxl is required for Excel export. Install with: pip install openpyxl",
             )
             return
         except OSError as e:
-            QMessageBox.warning(self, "Pass BOM", f"Could not write file: {e}")
+            QMessageBox.warning(self, "Process BOM", f"Could not write file: {e}")
             return
-        QMessageBox.information(self, "Pass BOM", f"BOM saved to:\n{path_str}")
+        QMessageBox.information(self, "Process BOM", f"BOM saved to:\n{path_str}")
 
     def _project_dict(self) -> Dict[str, Any]:
         """Shape expected by :mod:`tubing_master.quotation` and grain/BOM helpers."""
@@ -5782,21 +5937,14 @@ class TubingMaster(QMainWindow):
             self._refresh_quotation_from_pass_schedule(interactive=False)
 
     def _refresh_quotation_from_pass_schedule(self, *, interactive: bool) -> bool:
-        """Rebuild quotation lines from Tubing Project + Pass schedule (``rebuild_schedule_rows=True``).
+        """Rebuild quotation lines from Tubing Project + full Pass schedule (``rebuild_schedule_rows=True``).
 
-        When ``interactive`` is False (switching to Quotation tab), geometry/finalize failures update the totals label
-        only — no modal dialogs.
+        When ``interactive`` is False (schedule sync / switching to Quotation tab), geometry/finalize
+        failures update the totals label only — no modal dialogs. Schedule process lines are still
+        rebuilt whenever possible.
         """
+        self._commit_tubing_project_diameter_edits()
         err = self._geometry_error_message(require_target=False)
-        if err:
-            if interactive:
-                QMessageBox.warning(self, "Quotation", err)
-            else:
-                self.quote_totals_label.setText(
-                    "Set valid incoming/target OD/ID on Tubing Project to compute quotation. "
-                    f"({err})"
-                )
-            return False
         snap: Dict[str, Any] = dict(self._quotation_snapshot) if self._quotation_snapshot else {}
         snap["version"] = 2
         snap["currency"] = self.quote_currency.text().strip() or "USD"
@@ -5819,6 +5967,15 @@ class TubingMaster(QMainWindow):
         self._update_quote_stock_price_display()
         self._fill_quotation_table(result)
         self._update_quotation_totals_label()
+        if err:
+            note = f" Geometry note: {err}"
+            self.quote_totals_label.setText(self.quote_totals_label.text() + note)
+            if interactive:
+                QMessageBox.warning(
+                    self,
+                    "Quotation",
+                    f"Quotation was updated from the schedule, but geometry is incomplete:\n{err}",
+                )
         return True
 
     def _recalculate_quotation_from_schedule(self) -> None:
@@ -5895,7 +6052,11 @@ class TubingMaster(QMainWindow):
                 tr = i + 1
                 lk = str(ln.get("line_kind") or "pass")
                 if lk == "pass" and ln.get("pass") is not None:
-                    pass_txt = str(int(ln["pass"]))
+                    pass_txt = str(ln.get("step") or f"Pass {int(ln['pass'])}")
+                    if pass_txt.isdigit():
+                        pass_txt = f"Pass {pass_txt}"
+                elif lk == "process":
+                    pass_txt = str(ln.get("step") or ln.get("kind") or "Process")
                 elif lk == "surcharge":
                     pass_txt = "—"
                 elif lk == "process_charge":
@@ -5957,7 +6118,7 @@ class TubingMaster(QMainWindow):
         tot = float(q.get("total", 0.0) or 0.0)
         self.quote_totals_label.setText(
             f"Currency {cur} · Materials: {m:.2f} (stock {sm:.2f} + additional {ad:.2f}) · "
-            f"Drawing charges: {dch:.2f} · Total: {tot:.2f}"
+            f"Process charges: {dch:.2f} · Total: {tot:.2f}"
         )
 
     def _recalculate_quotation_totals_from_lines(self) -> None:

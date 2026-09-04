@@ -117,27 +117,77 @@ def stock_mass_kg(
 
 
 def pass_charge_lines_from_project(project: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """One charge row per drawing pass (die): OD step + semi-die angle from schedule."""
+    """
+    One charge row per schedule step from :func:`compute_pass_die_rows`.
+
+    Drawing dies use ``line_kind=\"pass\"`` (1-based pass index). Incoming and
+    auxiliary processes use ``line_kind=\"process\"``. Mandrel/tool rows are
+    omitted (costed with the die pass).
+    """
     lines: List[Dict[str, Any]] = []
     for r in compute_pass_die_rows(project):
-        if r.get("row_kind") != "die":
+        rk = str(r.get("row_kind") or "")
+        if rk == "tool":
             continue
-        od_b = float(r["od_before"])
-        od_a = float(r["od_after"])
-        delta = od_a - od_b
-        alpha = float(r["alpha_deg"])
-        lines.append(
-            {
-                "line_kind": "pass",
-                "pass": int(r["pass"]),
-                "description": f"OD {od_b:.4f} -> {od_a:.4f} mm (Δ {delta:+.4f} mm)",
-                "dies": f"α={alpha:.2f}°",
-                "qty": 1.0,
-                "unit_cost": 0.0,
-                "extended": 0.0,
-                "comments": "",
-            }
-        )
+        equipment = str(r.get("equipment", "") or "").strip()
+        notes = str(r.get("notes", "") or "").strip()
+        if rk == "die":
+            od_b = float(r["od_before"])
+            od_a = float(r["od_after"])
+            delta = od_a - od_b
+            alpha = float(r["alpha_deg"])
+            dies = f"α={alpha:.2f}°"
+            if equipment:
+                dies = f"{dies}; {equipment}"
+            lines.append(
+                {
+                    "line_kind": "pass",
+                    "pass": int(r["pass"]),
+                    "kind": "drawing",
+                    "schedule_index": int(r.get("schedule_index") or 0),
+                    "step": str(r.get("step") or f"Pass {int(r['pass'])}"),
+                    "description": f"OD {od_b:.4f} -> {od_a:.4f} mm (Δ {delta:+.4f} mm)",
+                    "dies": dies,
+                    "qty": 1.0,
+                    "unit_cost": 0.0,
+                    "extended": 0.0,
+                    "comments": notes,
+                }
+            )
+            continue
+        if rk in ("incoming", "process"):
+            kind = str(r.get("kind") or "process")
+            step = str(r.get("step") or r.get("item") or kind.title())
+            item = str(r.get("item") or step)
+            od_b = r.get("od_before")
+            od_a = r.get("od_after")
+            desc_bits = [item]
+            try:
+                if od_b is not None and od_a is not None:
+                    ob, oa = float(od_b), float(od_a)
+                    if abs(oa - ob) > 1e-9:
+                        desc_bits.append(f"OD {ob:.4f} -> {oa:.4f} mm")
+                    else:
+                        desc_bits.append(f"OD {oa:.4f} mm (hold)")
+            except (TypeError, ValueError):
+                pass
+            if notes:
+                desc_bits.append(notes)
+            lines.append(
+                {
+                    "line_kind": "process",
+                    "pass": 0,
+                    "kind": kind,
+                    "schedule_index": int(r.get("schedule_index") or 0),
+                    "step": step,
+                    "description": " — ".join(desc_bits),
+                    "dies": equipment,
+                    "qty": 1.0,
+                    "unit_cost": 0.0,
+                    "extended": 0.0,
+                    "comments": "",
+                }
+            )
     return lines
 
 
@@ -145,23 +195,46 @@ def _line_extended(ln: Dict[str, Any]) -> float:
     return float(ln.get("qty", 1.0) or 1.0) * float(ln.get("unit_cost", 0.0) or 0.0)
 
 
+def _schedule_charge_merge_key(ln: Dict[str, Any]) -> tuple:
+    """Stable identity for preserving unit cost / comments across schedule rebuilds."""
+    lk = str(ln.get("line_kind") or "pass")
+    if lk == "pass":
+        try:
+            return ("pass", int(ln.get("pass") or 0))
+        except (TypeError, ValueError):
+            return ("pass", 0)
+    if lk == "process":
+        try:
+            si = int(ln.get("schedule_index") or 0)
+        except (TypeError, ValueError):
+            si = 0
+        return ("process", str(ln.get("kind") or ""), si)
+    if lk == "process_charge":
+        return ("process_charge", str(ln.get("slot") or ""))
+    if lk == "surcharge":
+        return ("surcharge", str(ln.get("description") or ""))
+    return (lk, str(ln.get("description") or ""))
+
+
 def merge_pass_charges_preserve_edits(
     new_pass_lines: List[Dict[str, Any]], old_lines: List[Dict[str, Any]]
 ) -> List[Dict[str, Any]]:
-    """When the schedule is rebuilt, keep price and comments for passes that still exist."""
-    old_by_pass: Dict[int, Dict[str, Any]] = {}
+    """When the schedule is rebuilt, keep price and comments for matching schedule lines."""
+    old_by_key: Dict[tuple, Dict[str, Any]] = {}
     for x in old_lines:
-        if x.get("line_kind") != "pass":
+        lk = str(x.get("line_kind") or "")
+        if lk not in ("pass", "process"):
             continue
-        p = x.get("pass")
-        if p is not None:
-            old_by_pass[int(p)] = x
+        old_by_key[_schedule_charge_merge_key(x)] = x
     for row in new_pass_lines:
-        p = int(row["pass"])
-        if p in old_by_pass:
-            o = old_by_pass[p]
+        k = _schedule_charge_merge_key(row)
+        if k in old_by_key:
+            o = old_by_key[k]
             row["unit_cost"] = float(o.get("unit_cost", 0.0) or 0.0)
-            row["comments"] = str(o.get("comments", ""))
+            # Prefer user comments; fall back to carried schedule notes already on the row.
+            old_c = str(o.get("comments", "") or "")
+            if old_c:
+                row["comments"] = old_c
         row["extended"] = _line_extended(row)
     return new_pass_lines
 
@@ -216,6 +289,7 @@ def ensure_process_charge_lines(lines: List[Dict[str, Any]]) -> None:
 def rebuild_per_pass_lines(
     project: Dict[str, Any], old_quotation: Dict[str, Any]
 ) -> List[Dict[str, Any]]:
+    """Rebuild schedule charge rows (drawing + auxiliary) and keep surcharges / process slots."""
     fresh = pass_charge_lines_from_project(project)
     old = list(old_quotation.get("lines") or [])
     merge_pass_charges_preserve_edits(fresh, old)
