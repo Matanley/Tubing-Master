@@ -350,6 +350,27 @@ class _CenteredTableItemDelegate(QStyledItemDelegate):
         return editor
 
 
+class _DiameterSpinBox(QDoubleSpinBox):
+    """Tubing Project OD/ID box where typed text takes priority over the ▲/▼ steppers."""
+
+    in_step = False
+
+    def stepBy(self, steps: int) -> None:
+        # Step from the number the user typed, not the last committed value.
+        le = self.lineEdit()
+        if le is not None and le.isModified():
+            self.interpretText()
+        self.in_step = True
+        try:
+            super().stepBy(steps)
+        finally:
+            self.in_step = False
+
+    def wheelEvent(self, event) -> None:
+        # Let the page scroll; a wheel step would trigger a full geometry refresh.
+        event.ignore()
+
+
 class TubingMaster(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
@@ -424,11 +445,11 @@ class TubingMaster(QMainWindow):
 
         in_box = QGroupBox("Incoming Tube (Before Drawing)")
         in_form = QFormLayout(in_box)
-        self.in_od_mm = QDoubleSpinBox()
+        self.in_od_mm = _DiameterSpinBox()
         self.in_od_mm.setRange(0.1, 500.0)
         self.in_od_mm.setValue(12.0)
         self.in_od_mm.setDecimals(3)
-        self.in_id_mm = QDoubleSpinBox()
+        self.in_id_mm = _DiameterSpinBox()
         self.in_id_mm.setRange(0.01, 499.0)
         self.in_id_mm.setDecimals(3)
         self._configure_tubing_project_diameter_spin(self.in_od_mm, single_step=0.01)
@@ -438,11 +459,11 @@ class TubingMaster(QMainWindow):
 
         out_box = QGroupBox("Target Output Tube (After Drawing)")
         out_form = QFormLayout(out_box)
-        self.out_od_mm = QDoubleSpinBox()
+        self.out_od_mm = _DiameterSpinBox()
         self.out_od_mm.setRange(0.1, 500.0)
         self.out_od_mm.setValue(10.5)
         self.out_od_mm.setDecimals(3)
-        self.out_id_mm = QDoubleSpinBox()
+        self.out_id_mm = _DiameterSpinBox()
         self.out_id_mm.setRange(0.01, 499.0)
         self.out_id_mm.setDecimals(3)
         self._configure_tubing_project_diameter_spin(self.out_od_mm, single_step=0.01)
@@ -572,10 +593,14 @@ class TubingMaster(QMainWindow):
         # OD→ID sync must run when OD keyboard entry completes (before schedule commit).
         self.in_od_mm.editingFinished.connect(self._apply_incoming_od_id_tracking_after_od_value)
         self.out_od_mm.editingFinished.connect(self._apply_target_od_id_tracking_after_od_value)
+        # ▲/▼ steps only restart this timer; hints, history match, and schedule refresh run once stepping pauses.
+        self._diameter_step_settle_timer = QTimer(self)
+        self._diameter_step_settle_timer.setSingleShot(True)
+        self._diameter_step_settle_timer.setInterval(350)
+        self._diameter_step_settle_timer.timeout.connect(self._on_diameter_steps_settled)
         for sp in (self.in_od_mm, self.in_id_mm, self.out_od_mm, self.out_id_mm):
-            sp.valueChanged.connect(self._update_geometry_hints)
-            sp.valueChanged.connect(self._update_project_history_panel)
-            # Typed OD/ID often commit only on blur; valueChanged alone misses Pass Schedule + Tubing diagram updates.
+            sp.valueChanged.connect(self._on_diameter_value_changed)
+            # Enter / focus-out commits typed text immediately (takes priority over pending steps).
             sp.editingFinished.connect(self._on_tubing_diameter_edit_finished)
         self.in_od_mm.valueChanged.connect(self._on_incoming_od_for_id_tracking)
         self.in_id_mm.valueChanged.connect(self._on_incoming_id_for_tracking)
@@ -4267,15 +4292,13 @@ class TubingMaster(QMainWindow):
 
     @staticmethod
     def _configure_tubing_project_diameter_spin(sb: QDoubleSpinBox, *, single_step: float) -> None:
-        """Show ▲/▼ steppers (native UI); keyboard tracking enables typing."""
+        """Typed value commits on Enter / focus-out; ▲/▼ steppers stay available for fine nudges."""
         sb.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.UpDownArrows)
         sb.setSingleStep(single_step)
-        try:
-            sb.setStepType(QAbstractSpinBox.StepType.AdaptiveDecimalStepType)
-        except Exception:
-            pass
         sb.setAccelerated(True)
-        sb.setKeyboardTracking(True)
+        sb.setKeyboardTracking(False)
+        sb.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        sb.setToolTip("Type a value in mm and press Enter to apply, or use ▲/▼ to nudge.")
         le = sb.lineEdit()
         if le is not None:
             le.setReadOnly(False)
@@ -4942,16 +4965,36 @@ class TubingMaster(QMainWindow):
     def _commit_tubing_project_diameter_edits(self) -> None:
         """Ensure OD/ID spinbox .value() matches visible editor text before any geometry read."""
         # Do not call processEvents here — nested event loops starve close/minimize on macOS.
+        diameter_spins = (self.in_od_mm, self.in_id_mm, self.out_od_mm, self.out_id_mm)
         app = QApplication.instance()
         if app is not None:
             fw = app.focusWidget()
-            if fw is not None and self.isAncestorOf(fw):
+            # Diameter boxes are synced directly below; keeping their focus lets ▲/▼ keys keep stepping.
+            in_diameter_box = any(fw is sb or (fw is not None and sb.isAncestorOf(fw)) for sb in diameter_spins)
+            if fw is not None and self.isAncestorOf(fw) and not in_diameter_box:
                 fw.clearFocus()
-        for _sb in (self.in_od_mm, self.in_id_mm, self.out_od_mm, self.out_id_mm):
+        for _sb in diameter_spins:
             self._sync_spinbox_value_from_line_edit(_sb)
+
+    def _on_diameter_value_changed(self, _v: float) -> None:
+        spins = (self.in_od_mm, self.in_id_mm, self.out_od_mm, self.out_id_mm)
+        # A ▲/▼ step (including the ID that tracks a stepped OD) defers the costly refresh.
+        if any(sb.in_step for sb in spins) or self._diameter_step_settle_timer.isActive():
+            self._diameter_step_settle_timer.start()
+            return
+        self._update_geometry_hints()
+        self._update_project_history_panel()
+
+    def _on_diameter_steps_settled(self) -> None:
+        """Run the deferred refresh after ▲/▼ stepping pauses, unless the user is mid-typing (Enter will commit)."""
+        for sb in (self.in_od_mm, self.in_id_mm, self.out_od_mm, self.out_id_mm):
+            if self._tubing_od_spin_user_is_editing_text(sb):
+                return
+        self._on_tubing_diameter_edit_finished()
 
     def _on_tubing_diameter_edit_finished(self) -> None:
         """When user finishes editing any Tubing Project OD/ID box, commit text and refresh schedule + strip + suggested row count."""
+        self._diameter_step_settle_timer.stop()
         self._commit_tubing_project_diameter_edits()
         self._update_geometry_hints()
         self._warn_od_must_exceed_id_if_needed()
